@@ -79,7 +79,7 @@ klientas:{ katalogai: ["t-77", "bendras"], limitas_atlikėjui: 1, rezultatų: 10
 
 ```
 { "rezultatai": [
-    { "daina": "Nightfield", "atlikėjas": "Kepler Grove", "balas": 0.874,
+    { "daina": "Nightfield", "atlikėjas": "Kepler Grove", "balas": 0.908,
       "tempas": 126.0, "tonacija": "8A",
       "kodėl": ["124 ir 126 BPM", "abi instrumentinės", "tonacijos dera"] } ],
   "dalinis_rezultatas": false }
@@ -96,12 +96,59 @@ klientas:{ katalogai: ["t-77", "bendras"], limitas_atlikėjui: 1, rezultatų: 10
 ### Taisyklės arba sprendimo žingsniai
 
 1. **Tempo sutapimas, atsižvelgiant į dvigubinimą.** Tempą nustatantys algoritmai dažnai klysta lygiai dvigubai (120 dūžių per minutę atpažįsta kaip 60), nes muzikoje abu skaičiavimo būdai teisingi. Todėl skirtumas skaičiuojamas trimis būdais ir imamas mažiausias: `Δ = min(|b₁ − b₂|, |2·b₁ − b₂|, |b₁ − 2·b₂|)`, o balas `exp(−(Δ/6)²)` – jis lygus 1,0 prie nulinio skirtumo ir greitai artėja prie nulio skirtumui didėjant. 120 ir 60 BPM gauna 1,0 (tempas laikomas tuo pačiu), 120 ir 126 – apie 0,37, o 120 ir 132 – jau tik apie 0,02.
-2. **Tonacijų suderinamumas.** Naudojamas Camelot ratas – DJ schema, kurioje tonacijos sudėtos ratu taip, kad gretimos skamba kartu gerai. Balas `max(0, 1 − žingsniai/4)` padauginamas iš tonacijos nustatymo pasitikėjimo (skaičiaus nuo 0 iki 1, kurį pateikia analizės programa). Taip netiksliai nustatyta tonacija beveik neturi įtakos balui – reikalinga apsauga, nes iškreiptoje gitarinėje muzikoje tonacija nustatoma klaidingai dažnai.
-3. **Bendras balas – svorinė suma:** kiekvienas iš penkių balų dauginamas iš savo svorio ir sudedama. Svorių suma visada perskaičiuojama į 1, todėl balas garantuotai yra tarp 0 ir 1, kokius svorius naudotojas benurodytų.
-4. **Pasikartojimų išmetimas.** Kandidatas atmetamas, jei kosinuso panašumas su jau atrinkta daina didesnis nei 0,98 (tas pats įrašas kitu pavadinimu) arba sutampa sunormintas pavadinimas – norminant nuimama `Remix`, `Live`, `Remaster`, `Radio Edit`, `feat.` ir skliaustų turinys. Kitaip rezultatuose atsirastų ta pati daina penkiais variantais.
-5. **Atlikėjo limitas.** Pateiktos dainos atlikėjas išmetamas visada – naudotojas ieško ne to paties atlikėjo. Iš kitų atlikėjų įtraukiama ne daugiau nei limitas (numatytai viena daina), kad dešimtuko neužimtų vienas albumas.
-6. **Įvairovė.** Iš kandidato balo atimama dalis, parodanti, kaip jis panašus į jau atrinktas dainas (70 % balui, 30 % įvairovei). Be šio žingsnio dešimtuke atsirastų dešimt beveik vienodų dainų, nes arčiausios pateiktai dainai paprastai artimos ir viena kitai.
-7. **Per siauras filtras.** Jei rezultatų mažiau nei prašyta, modulis negrąžina tuščio sąrašo tyliai: grąžina tai, ką turi, pažymi `dalinis_rezultatas: true` ir nurodo labiausiai apribojusį filtrą, kad naudotojas žinotų, ką atlaisvinti.
+2. **Tonacijų suderinamumas.** Naudojamas Camelot ratas – DJ schema, kurioje tonacijos sudėtos ratu taip, kad gretimos skamba kartu gerai. Balas `max(0, 1 − žingsniai/4)` padauginamas iš **mažesniojo iš dviejų tonacijos nustatymo pasitikėjimų** – užklausos ir kandidato (kiekvienas yra skaičius nuo 0 iki 1, kurį pateikia analizės programa). Taip netiksliai nustatyta tonacija beveik neturi įtakos balui – reikalinga apsauga, nes iškreiptoje gitarinėje muzikoje tonacija nustatoma klaidingai dažnai.
+3. **Garsumo ir nuotaikos balai.** Garsumo balas `exp(−|Δgarsumas|/6)`, kur skirtumas imamas garsumo vienetais (LUFS): nulinis skirtumas duoda 1,0, šešių vienetų – apie 0,37. Nuotaikos balas `1 − vidutinis skirtumas` tarp atitinkamų nuotaikos tikimybių: jei užklausos instrumentalumas 0,93 ir tamsumas 0,71, o kandidato 0,88 ir 0,69, vidutinis skirtumas yra (0,05 + 0,02)/2 = 0,035, tad balas 0,965. Abu balai visada tarp 0 ir 1.
+4. **Bendras balas – svorinė suma.** Visi penki balai (vektoriaus, tempo, tonacijos, garsumo, nuotaikos) dauginami iš savo svorio, sudedami ir dalijami iš svorių sumos:
+
+   `Balas = (w_v·v + w_t·t + w_k·k + w_g·g + w_n·n) / (w_v + w_t + w_k + w_g + w_n)`
+
+   Dalyba iš sumos užtikrina, kad balas visada yra tarp 0 ir 1. **Leistini svoriai:** kiekvienas nuo 0 iki 1 imtinai; neigiamas arba didesnis atmetamas su klaida `NETINKAMAS_SVORIS`. **Jei svorių suma lygi nuliui**, užklausa atmetama su klaida `NULINIAI_SVORIAI` – visų dainų balas būtų 0 ir eilė taptų atsitiktinė, tad geriau grąžinti klaidą, nei apsimesti turint rezultatą.
+5. **Pasikartojimų išmetimas.** Kandidatas atmetamas, jei kosinuso panašumas su jau atrinkta daina didesnis nei 0,98 (tas pats įrašas kitu pavadinimu) arba sutampa sunormintas pavadinimas – norminant nuimama `Remix`, `Live`, `Remaster`, `Radio Edit`, `feat.` ir skliaustų turinys. Kitaip rezultatuose atsirastų ta pati daina penkiais variantais.
+6. **Atlikėjo limitas.** Pateiktos dainos atlikėjas išmetamas visada – naudotojas ieško ne to paties atlikėjo. Iš kitų atlikėjų įtraukiama ne daugiau nei limitas (numatytai viena daina), kad dešimtuko neužimtų vienas albumas.
+7. **Įvairovė.** Dainos į galutinį sąrašą renkamos po vieną. Pirma imama didžiausią balą turinti daina. Kiekvienam tolesniam žingsniui visiems likusiems kandidatams skaičiuojama pataisyta vertė:
+
+   `pataisyta = 0,7 · balas − 0,3 · didžiausias kosinuso panašumas su jau atrinktomis dainomis`
+
+   Imamas didžiausią pataisytą vertę turintis kandidatas, ir taip kartojama iki prašomo kiekio. Be šio žingsnio dešimtuke atsirastų dešimt beveik vienodų dainų, nes arčiausios pateiktai dainai paprastai artimos ir viena kitai.
+8. **Per siauras filtras.** Jei rezultatų mažiau nei prašyta, modulis negrąžina tuščio sąrašo tyliai: grąžina tai, ką turi, pažymi `dalinis_rezultatas: true` ir nurodo labiausiai apribojusį filtrą, kad naudotojas žinotų, ką atlaisvinti.
+
+### Balų skaičiavimo pavyzdys
+
+Rinkinys, leidžiantis patikrinti patį skaičiavimą. **Užklausa:** 124 BPM, tonacija 8A (pasitikėjimas 0,81), garsumas −8,2, nuotaikos: instrumentinė 0,93 ir tamsi 0,71, atlikėjas A-1021. **Svoriai:** vektorius 0,70, tempas 0,10, tonacija 0,05, garsumas 0,05, nuotaika 0,10.
+
+Kandidatų požymiai:
+
+| Kandidatas | Atlikėjas | Vektorių panašumas | BPM | Tonacija (pasitik.) | Garsumas | Nuotaikos |
+|---|---|---|---|---|---|---|
+| K1 Nightfield | Kepler Grove | 0,91 | 126 | 8A (0,88) | −7,5 | 0,88 / 0,69 |
+| K2 Nightfield (Remix) | Kepler Grove | 0,90 | 126 | 8A (0,86) | −7,4 | 0,87 / 0,70 |
+| K3 Drift Layer | Kepler Grove | 0,89 | 122 | 9A (0,77) | −8,8 | 0,90 / 0,66 |
+| K4 Slow Tide | Mara Vale | 0,86 | 62 | 8A (0,75) | −9,0 | 0,95 / 0,60 |
+| K5 Copper Dust | Juno Reef | 0,88 | 138 | 3B (0,60) | −6,0 | 0,40 / 0,80 |
+| K6 Inner Field | A-1021 | 0,94 | 124 | 8A (0,80) | −8,0 | 0,92 / 0,72 |
+
+Pagal 1–4 taisykles apskaičiuoti balai:
+
+| Kandidatas | Vektorius | Tempas | Tonacija | Garsumas | Nuotaika | **Balas** |
+|---|---|---|---|---|---|---|
+| K1 | 0,91 | 0,89 | 0,81 | 0,89 | 0,96 | **0,908** |
+| K2 | 0,90 | 0,89 | 0,81 | 0,88 | 0,96 | **0,900** |
+| K3 | 0,89 | 0,89 | 0,58 | 0,90 | 0,96 | **0,883** |
+| K4 | 0,86 | 1,00 | 0,75 | 0,88 | 0,94 | **0,877** |
+| K5 | 0,88 | 0,00 | 0,00 | 0,69 | 0,69 | **0,720** |
+| K6 | 0,94 | 1,00 | 0,80 | 0,97 | 0,99 | **0,945** |
+
+K1 skaičiavimas pilnai: tempas `Δ = min(|124−126|, |248−126|, |124−252|) = 2` → `exp(−(2/6)²) = 0,89`; tonacija 8A ir 8A, nulis žingsnių → `1,0 × min(0,81; 0,88) = 0,81`; garsumas `|−8,2 − (−7,5)| = 0,7` → `exp(−0,7/6) = 0,89`; nuotaika `(0,05 + 0,02)/2 = 0,035` → `1 − 0,035 = 0,96`. Bendras balas `(0,70×0,91 + 0,10×0,89 + 0,05×0,81 + 0,05×0,89 + 0,10×0,96) / 1,00 = 0,908`.
+
+Verti dėmesio du atvejai: **K4** gauna tempo balą 1,00, nors jos tempas 62, o užklausos 124 (1 taisyklės dvigubinimas), o **K5** gauna nulius ir už tempą, ir už tonaciją, bet dėl didelio vektorių panašumo lieka sąraše.
+
+Atranka pagal 5–7 taisykles:
+
+1. **Pasikartojimai:** K2 išmetama – sunormintas pavadinimas „Nightfield“ sutampa su K1, o kosinusas tarp jų 0,99 > 0,98.
+2. **Atlikėjai:** K6 išmetama kaip užklausos atlikėjo daina; K3 išmetama, nes Kepler Grove jau atstovauja aukštesnį balą turinti K1 (0,908 > 0,883).
+3. **Įvairovė:** lieka K1 (0,908), K4 (0,877), K5 (0,720); kosinusai tarp jų K1–K4 = 0,95 ir K1–K5 = 0,55. Pirma imama K1. Toliau K4 gauna `0,7×0,877 − 0,3×0,95 = 0,329`, o K5 – `0,7×0,720 − 0,3×0,55 = 0,339`.
+
+**Galutinė eilė: K1 Nightfield → K5 Copper Dust → K4 Slow Tide.** K5 aplenkia K4, nors jos balas mažesnis: K4 per daug panaši į jau atrinktą K1.
 
 ### Scenarijai būsimiems testams
 
