@@ -23,3 +23,9 @@ Python, FastAPI, Essentia, PostgreSQL su `pgvector`, Redis, Docker Compose.
 ## Paleidimas
 
 Bus papildyta II etape – sistema turės pasileisti viena komanda.
+
+
+## Architektūriniai sprendimai (II etapas)
+1. **`dalinis_rezultatas` semantika:** `true`, kai grąžinamų rezultatų mažiau nei prašyta (`limit`). Laukas `labiausiai_ribojes_filtras` užpildomas tik tada, kai kandidatus atmetė pats filtras (ne dublikatų šalinimas ar atlikėjo limitas).
+2. **Filtro statistika:** repozitorija grąžina `survivors_per_filter` (kiek dainų atskirai praeina kiekvieną filtrą), o `domain` sluoksnis išrenka labiausiai apribojusį filtrą.
+3. **Vardiniai svoriai:** svoriai perduodami per vardinį registrą (`--weights vector=0.7,tempo=0.1`), kad kriterijų skaičius nebūtų įkaltas kode.
