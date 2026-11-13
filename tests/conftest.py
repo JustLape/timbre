@@ -49,21 +49,28 @@ DOCUMENT_PAIRWISE = {
 }
 
 
-def unit_vector_with_cosine(target: float) -> tuple[float, ...]:
+def unit_vector_with_cosine(target: float, axis: int = 1) -> tuple[float, ...]:
     """Vienetinis VECTOR_DIM vektorius, kurio kosinusas su QUERY_VECTOR = target.
 
     Konstrukcija: c = cos*q + sin*p, kur p statmenas q ir sin = sqrt(1-cos^2).
     Tą pačią naudoja ir scripts/seed_catalog.py.
+
+    `axis` nurodo, KURI ašis yra tas statmuo, ir tai nėra kosmetika. Jei visi
+    kandidatai naudotų tą pačią ašį, jie visi gulėtų vienoje plokštumoje ir jų
+    tarpusavio kosinusai būtų ~0,99 — tada dublikatų taisyklė (> 0,98) išmestų
+    juos visus, o rezultatas būtų tuščias. Su skirtingomis ašimis
+    cos(c_i, c_j) = cos_i * cos_j, t. y. geometriškai suderinta ir realistiška.
     """
     values = [0.0] * VECTOR_DIM
     values[0] = target
-    values[1] = math.sqrt(1.0 - target * target)
+    values[axis] = math.sqrt(1.0 - target * target)
     return tuple(values)
 
 
 def build_features(
     *,
     cosine_to_query: float = 1.0,
+    axis: int = 1,
     bpm: float = 124.0,
     key: str = "8A",
     key_confidence: float = 0.81,
@@ -72,7 +79,7 @@ def build_features(
 ) -> Features:
     """Features su dokumento užklausos reikšmėmis kaip numatytosiomis."""
     return Features(
-        vector=unit_vector_with_cosine(cosine_to_query),
+        vector=unit_vector_with_cosine(cosine_to_query, axis),
         bpm=bpm,
         key=key,
         key_confidence=key_confidence,
@@ -121,6 +128,7 @@ def document_candidates() -> list[Track]:
             artist=artist,
             features=build_features(
                 cosine_to_query=cosine_to_query,
+                axis=axis,
                 bpm=bpm,
                 key=key,
                 key_confidence=key_confidence,
@@ -128,7 +136,7 @@ def document_candidates() -> list[Track]:
                 moods={MOOD_INSTRUMENTAL: instrumental, MOOD_DARK: dark},
             ),
         )
-        for (
+        for axis, (
             song_id,
             title,
             artist,
@@ -139,7 +147,7 @@ def document_candidates() -> list[Track]:
             loudness_lufs,
             instrumental,
             dark,
-        ) in DOCUMENT_ROWS
+        ) in enumerate(DOCUMENT_ROWS, start=1)
     ]
 
 
