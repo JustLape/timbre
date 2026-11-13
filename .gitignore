@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+CLAUDE.md
+KONTEKSTAS.md
+2-etapas-specifikacija.md
+*.egg-info/
