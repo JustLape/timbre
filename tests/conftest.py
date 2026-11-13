@@ -169,6 +169,92 @@ def document_pairwise() -> dict[tuple[str, str], float]:
 
 
 @pytest.fixture
+def filter_catalog_tracks() -> list[Track]:
+    """Užklausa + 10 kandidatų, iš kurių tempo filtrą [121; 123] praeina 4.
+
+    Nepraeinančios dainos sąmoningai turi DIDESNĮ vektoriaus panašumą: jei
+    filtras būtų taikomas po balų skaičiavimo, jos užimtų visą dešimtuką.
+    Visų pavadinimai ir atlikėjai skirtingi, kad nieko neišmestų nei dublikatų
+    taisyklė, nei atlikėjo limitas.
+    """
+    tracks = [build_track("Q", title="Uzklausa", artist="A-1021", axis=1)]
+    for index in range(4):
+        tracks.append(
+            build_track(
+                f"P{index}",
+                title=f"Praeina {index}",
+                artist=f"Atlikejas P{index}",
+                features=build_features(
+                    cosine_to_query=0.80 - index * 0.01,
+                    axis=2 + index,
+                    bpm=122.0,
+                ),
+            )
+        )
+    for index in range(6):
+        tracks.append(
+            build_track(
+                f"N{index}",
+                title=f"Nepraeina {index}",
+                artist=f"Atlikejas N{index}",
+                features=build_features(
+                    cosine_to_query=0.95 - index * 0.01,
+                    axis=10 + index,
+                    bpm=100.0,
+                ),
+            )
+        )
+    return tracks
+
+
+@pytest.fixture
+def two_tenant_tracks() -> list[Track]:
+    """Du klientai viename kataloge: t-77 ir t-88.
+
+    Abiejų dainos turi tą patį song_id rinkinį — būtent taip tikrinama, ar
+    atskyrimas tikrai veikia, o ne tik atrodo.
+
+    Be to, t-88 turi vieną dainą `s-999`, kurios t-77 neturi. Tai
+    natūraliausias pažeidimo kelias: t-77 žino svetimą id ir bando jį
+    perskaityti arba pašalinti.
+    """
+    tracks: list[Track] = []
+    for tenant, prefix, axis_base in (("t-77", "A", 1), ("t-88", "B", 20)):
+        tracks.append(
+            build_track(
+                "s-100",
+                title=f"Uzklausa {prefix}",
+                artist=f"{prefix} atlikejas 0",
+                tenant_id=tenant,
+                axis=axis_base,
+            )
+        )
+        for index in range(3):
+            tracks.append(
+                build_track(
+                    f"s-{200 + index}",
+                    title=f"{prefix} daina {index}",
+                    artist=f"{prefix} atlikejas {index + 1}",
+                    tenant_id=tenant,
+                    features=build_features(
+                        cosine_to_query=0.90 - index * 0.05,
+                        axis=axis_base + 1 + index,
+                    ),
+                )
+            )
+    tracks.append(
+        build_track(
+            "s-999",
+            title="Tik t-88 daina",
+            artist="B atlikejas 9",
+            tenant_id="t-88",
+            features=build_features(cosine_to_query=0.92, axis=30),
+        )
+    )
+    return tracks
+
+
+@pytest.fixture
 def scored_factory():
     """Grąžina funkciją ScoredTrack kūrimui su nurodytu balu."""
 
