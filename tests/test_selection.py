@@ -124,3 +124,43 @@ def test_ivairove_be_pairwise_rikiuoja_pagal_bala(scored_factory):
 
     # Assert
     assert [item.track.song_id for item in selected] == ["A", "B", "C"]
+
+
+# --- Testai, pridėti po mutacijų audito -------------------------------------
+
+
+def test_riba_098_yra_griezta_ir_pati_reiksme_nera_dublikatas(scored_factory):
+    """Dublikatų riba yra `> 0,98`, ne `>=`. Keitimas į `>=` nebuvo pagautas
+    nė vieno testo, nors docstring'as specialiai aiškina, kad riba griežta.
+    Dokumento pavyzdyje nuo to priklauso, ar K4 išlieka rezultatuose."""
+    # Arrange
+    scored = [
+        scored_factory("A", 0.90, title="Pirma"),
+        scored_factory("B", 0.88, title="Antra"),
+    ]
+
+    # Act
+    kept, removed = remove_duplicates(scored, {("A", "B"): 0.98})
+
+    # Assert — lygiai ties riba daina dar NĖRA dublikatas
+    assert [item.track.song_id for item in kept] == ["A", "B"]
+    assert removed == 0
+
+
+def test_tuscias_sunormintas_pavadinimas_nera_dublikatas(scored_factory):
+    """„Live", „Remix" ir „(Live)" visi normalizuojasi į tuščią eilutę.
+    Be atskiros sąlygos antroji tokia daina būtų atmesta kaip pirmosios
+    dublikatas, nors apie jų panašumą nieko nežinoma."""
+    # Arrange
+    scored = [
+        scored_factory("A", 0.90, title="Live", artist="Pirmas"),
+        scored_factory("B", 0.88, title="Remix", artist="Antras"),
+        scored_factory("C", 0.86, title="(Live)", artist="Trecias"),
+    ]
+
+    # Act
+    kept, removed = remove_duplicates(scored, {})
+
+    # Assert
+    assert [item.track.song_id for item in kept] == ["A", "B", "C"]
+    assert removed == 0

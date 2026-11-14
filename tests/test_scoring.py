@@ -22,6 +22,7 @@ from timbre.domain.scoring import (
     MoodCriterion,
     TempoCriterion,
     score_all,
+    score_track,
     validate_weights,
 )
 
@@ -284,3 +285,67 @@ def test_visi_kriteriju_balai_intervale_nuo_nulio_iki_vieno():
         for name, strategy in DEFAULT_STRATEGIES.items():
             score = strategy.score(query, candidate)
             assert 0.0 <= score <= 1.0, f"{name} = {score}"
+
+
+# --- Testai, pridėti po mutacijų audito -------------------------------------
+# Mutacijų patikra parodė, kad šias elgsenas galima sulaužyti, o visi testai
+# lieka žali. Kiekvienas testas žemiau atitinka vieną tokią spragą.
+
+
+def test_svorine_suma_dalijama_is_svoriu_sumos():
+    """Visuose ankstesniuose testuose svorių suma buvo lygiai 1,0, todėl
+    dalyba iš sumos neturėjo jokio efekto ir jos pašalinimo niekas nepagavo.
+    Čia suma sąmoningai 2,0."""
+    # Arrange — abu kriterijai duoda 1,0, tad balas turi būti 1,0, ne 2,0
+    query = make_features(bpm=124.0, key="8A", key_confidence=1.0)
+    candidate = make_features(cosine_to_query=1.0, bpm=124.0, key="8A",
+                              key_confidence=1.0)
+    query_track = make_track("Q", "Uzklausa", "A", query)
+    candidate_track = make_track("C", "Kandidatas", "B", candidate)
+
+    # Act
+    scored = score_track(query_track, candidate_track,
+                         {"tempo": 1.0, "key": 1.0}, DEFAULT_STRATEGIES)
+
+    # Assert
+    assert scored.total_score == pytest.approx(1.0, abs=0.001)
+
+
+def test_tonacijos_raide_prideda_viena_zingsni():
+    """8A ir 8B yra tas pats skaičius, bet skirtinga raidė: 1 žingsnis."""
+    # Arrange
+    query = make_features(key="8A", key_confidence=1.0)
+    candidate = make_features(key="8B", key_confidence=1.0)
+
+    # Act
+    score = KeyCriterion().score(query, candidate)
+
+    # Assert — max(0, 1 - 1/4) = 0,75
+    assert score == pytest.approx(0.75, abs=0.001)
+
+
+def test_camelot_ratas_apsisuka_per_dvylika():
+    """1A ir 12A yra kaimynai rate, nors skaičiai skiriasi vienuolika."""
+    # Arrange
+    query = make_features(key="1A", key_confidence=1.0)
+    candidate = make_features(key="12A", key_confidence=1.0)
+
+    # Act
+    score = KeyCriterion().score(query, candidate)
+
+    # Assert — min(11, 12-11) = 1 žingsnis, ne 11
+    assert score == pytest.approx(0.75, abs=0.001)
+
+
+def test_nuotaikos_vidurkis_imamas_tik_per_bendrus_raktus():
+    """Jei vidurkis būtų imamas per visus raktus, nesutampantys raktai
+    tyliai mažintų balą, o taisyklė sako aiškiai: tik per bendrus."""
+    # Arrange — bendras tik vienas raktas, ir jo reikšmės sutampa
+    query = make_features(moods={MOOD_INSTRUMENTAL: 0.9, MOOD_DARK: 0.1})
+    candidate = make_features(moods={MOOD_INSTRUMENTAL: 0.9, "energinga": 0.9})
+
+    # Act
+    score = MoodCriterion().score(query, candidate)
+
+    # Assert — vidurkis per vieną bendrą raktą: 1 - 0 = 1,0
+    assert score == pytest.approx(1.0, abs=0.001)

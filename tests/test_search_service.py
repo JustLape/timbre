@@ -9,7 +9,10 @@ import pytest
 from timbre.adapters.in_memory import InMemoryCatalog
 from timbre.app.search_service import SearchService
 from timbre.domain.errors import ErrorCode, TimbreError
+from timbre.domain.constants import MOOD_INSTRUMENTAL
 from timbre.domain.models import FilterSpec
+
+from tests.conftest import build_features, build_track
 
 
 def make_service(tracks) -> SearchService:
@@ -164,3 +167,108 @@ def test_filtro_neatitinkanciu_dainu_rezultatuose_nera(filter_catalog_tracks):
 
     # Assert
     assert all(121.0 <= item.track.features.bpm <= 123.0 for item in result.items)
+
+
+# --- Testai, pridėti po mutacijų audito -------------------------------------
+# `NETINKAMAS_FILTRAS` — vienas iš keturių dokumento klaidų kodų — iki audito
+# neturėjo nė vieno testo.
+
+
+def test_nulinis_rezultatu_kiekis_kelia_netinkamas_filtras(filter_catalog_tracks):
+    # Act & Assert
+    with pytest.raises(TimbreError) as info:
+        make_service(filter_catalog_tracks).search(
+            tenant_id="t-77", song_id="Q", filters=FilterSpec(), limit=0
+        )
+    assert info.value.code is ErrorCode.NETINKAMAS_FILTRAS
+
+
+def test_apverstas_tempo_intervalas_kelia_netinkamas_filtras(filter_catalog_tracks):
+    # Act & Assert
+    with pytest.raises(TimbreError) as info:
+        make_service(filter_catalog_tracks).search(
+            tenant_id="t-77",
+            song_id="Q",
+            filters=FilterSpec(bpm_min=130.0, bpm_max=118.0),
+            limit=10,
+        )
+    assert info.value.code is ErrorCode.NETINKAMAS_FILTRAS
+
+
+def test_nulinis_atlikejo_limitas_kelia_netinkamas_filtras(filter_catalog_tracks):
+    """Be šios patikros `--artist-limit 0` tyliai grąžindavo tuščią sąrašą."""
+    # Act & Assert
+    with pytest.raises(TimbreError) as info:
+        make_service(filter_catalog_tracks).search(
+            tenant_id="t-77",
+            song_id="Q",
+            filters=FilterSpec(),
+            limit=10,
+            artist_limit=0,
+        )
+    assert info.value.code is ErrorCode.NETINKAMAS_FILTRAS
+
+
+def test_pasalinimo_skaitikliai_tikrai_skaiciuoja(document_query, document_candidates):
+    """Mutacija, paverčianti visus `removal_counts` nuliais, nebuvo pagauta."""
+    # Arrange — dokumento rinkinyje K2 yra dublikatas, o K6 ir K3 krenta
+    # pagal atlikėjo limitą
+    service = make_service([document_query] + document_candidates)
+
+    # Act
+    result = service.search(
+        tenant_id="t-77", song_id="Q", filters=FilterSpec(), limit=10
+    )
+
+    # Assert
+    assert result.removal_counts["duplicates"] >= 1
+    assert result.removal_counts["artist_limit"] >= 2
+
+
+def test_abu_filtrai_atmete_ta_pati_rinkini_vis_tiek_nurodo_filtra():
+    """Ankstesnė versija nefiltruotų kandidatų kiekį spėdavo kaip didžiausią
+    `survivors_per_filter` reikšmę. Kai abu filtrai aktyvūs ir atmeta tą patį
+    rinkinį, visos reikšmės lygios, ir laukas tyliai likdavo tuščias — CLI
+    rašydavo „filtrai nieko neatmetė", nors atmetė."""
+    # Arrange — 6 matomos dainos, abu filtrai praleidžia tas pačias 2
+    tracks = [build_track("Q", title="Uzklausa", artist="A-1021", axis=1)]
+    for index in range(2):
+        tracks.append(
+            build_track(
+                f"G{index}",
+                title=f"Gera {index}",
+                artist=f"Geras {index}",
+                features=build_features(
+                    cosine_to_query=0.8,
+                    axis=2 + index,
+                    bpm=122.0,
+                    moods={MOOD_INSTRUMENTAL: 0.9},
+                ),
+            )
+        )
+    for index in range(4):
+        tracks.append(
+            build_track(
+                f"B{index}",
+                title=f"Bloga {index}",
+                artist=f"Blogas {index}",
+                features=build_features(
+                    cosine_to_query=0.9,
+                    axis=10 + index,
+                    bpm=60.0,
+                    moods={MOOD_INSTRUMENTAL: 0.1},
+                ),
+            )
+        )
+
+    # Act
+    result = make_service(tracks).search(
+        tenant_id="t-77",
+        song_id="Q",
+        filters=FilterSpec(bpm_min=121.0, bpm_max=123.0, instrumental_only=True),
+        limit=10,
+    )
+
+    # Assert
+    assert len(result.items) == 2
+    assert result.labiausiai_ribojes_filtras is not None
