@@ -22,7 +22,13 @@ from ..domain.constants import (
 )
 from ..domain.errors import ErrorCode, TimbreError
 from ..domain.explain import explain
-from ..domain.models import FilterSpec, ResultItem, SearchResult, Track
+from ..domain.models import (
+    CandidatePool,
+    FilterSpec,
+    ResultItem,
+    SearchResult,
+    Track,
+)
 from ..domain.scoring import (
     DEFAULT_STRATEGIES,
     CriterionStrategy,
@@ -68,8 +74,8 @@ class SearchService:
         # 1. Svoriai.
         validate_weights(effective_weights, self._strategies)
 
-        # 2. Filtrai ir limitas.
-        self._validate_filters(filters, limit)
+        # 2. Filtrai ir limitai.
+        self._validate_filters(filters, limit, artist_limit)
 
         # 3. Užklausos daina.
         query = self._repo.get_track(tenant_id, song_id)
@@ -134,11 +140,19 @@ class SearchService:
             )
 
     @staticmethod
-    def _validate_filters(filters: FilterSpec, limit: int) -> None:
+    def _validate_filters(filters: FilterSpec, limit: int, artist_limit: int) -> None:
         if limit <= 0:
             raise TimbreError(
                 ErrorCode.NETINKAMAS_FILTRAS,
                 f"rezultatų kiekis turi būti didesnis už nulį, gauta {limit}",
+            )
+        # Be šios patikros `--artist-limit 0` tyliai grąžintų tuščią sąrašą:
+        # atlikėjo limitas išmestų visus kandidatus, ir naudotojas nesuprastų,
+        # kodėl nieko nerado.
+        if artist_limit <= 0:
+            raise TimbreError(
+                ErrorCode.NETINKAMAS_FILTRAS,
+                f"dainų iš to paties atlikėjo turi būti bent viena, gauta {artist_limit}",
             )
         if (
             filters.bpm_min is not None
@@ -175,21 +189,25 @@ class SearchService:
         return pairwise
 
     @staticmethod
-    def _most_restricting_filter(pool) -> str | None:
+    def _most_restricting_filter(pool: CandidatePool) -> str | None:
         """Labiausiai apribojęs filtras — tik jei filtras tikrai ką nors atmetė.
 
         Jei rezultatų mažiau vien dėl dublikatų ar atlikėjo limito, laukas
         lieka `None`: priešingu atveju naudotojui būtų nurodyta atlaisvinti
         filtrą, kuris nieko neatmetė.
 
-        Nefiltruotų kandidatų kiekis atkuriamas kaip didžiausia
-        `survivors_per_filter` reikšmė: nenaudojamas filtras praleidžia visas
-        dainas, todėl jo reikšmė ir yra bendras kiekis.
+        Filtras ką nors atmetė tada ir tik tada, kai jį vieną praėjusių dainų
+        yra mažiau, nei apskritai matomų kliento dainų. Todėl lyginama su
+        `visible_count`, o ne su kandidatų sąrašo ilgiu ar su didžiausia
+        `survivors_per_filter` reikšme — abu tie pakaitalai duoda neteisingą
+        atsakymą. Didžiausia reikšmė klysta, kai visi filtrai aktyvūs ir atmeta
+        tą patį rinkinį (tada laukas liktų tuščias, nors atmesta). Kandidatų
+        sąrašo ilgis klysta, kai matomų dainų daugiau nei POOL_SIZE (tada būtų
+        nurodytas filtras, kuris nieko neatmetė).
         """
         survivors = pool.survivors_per_filter
         if not survivors:
             return None
-        baseline = max(survivors.values())
-        if len(pool.candidates) >= baseline:
+        if all(count >= pool.visible_count for count in survivors.values()):
             return None
         return min(survivors, key=lambda name: (survivors[name], name))

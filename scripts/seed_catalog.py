@@ -92,6 +92,23 @@ def unit_vector(cosine_to_query: float, axis: int) -> list[float]:
     return [round(value, 6) for value in values]
 
 
+def unique_title(rng: random.Random, used: set[str]) -> str:
+    """Sugeneruoja dar nenaudotą pavadinimą.
+
+    Be unikalumo patikros iš 15x15 dalių traukiant penkias dešimtis kartų
+    atsitiktiniai sutapimai yra beveik neišvengiami, ir tada dublikatų
+    taisyklė išmeta dainas, kurių niekas sąmoningai nepadarė dublikatais —
+    demonstracijoje tai atrodo kaip klaida. Vienintelis sąmoningas dublikatas
+    turi likti „Nightfield (Remix)".
+    """
+    for _ in range(500):
+        title = f"{rng.choice(TITLE_PARTS_FIRST)} {rng.choice(TITLE_PARTS_SECOND)}"
+        if title not in used:
+            used.add(title)
+            return title
+    raise RuntimeError("nepavyko sugeneruoti unikalaus pavadinimo")
+
+
 def make_entry(
     song_id: str,
     tenant_id: str,
@@ -129,6 +146,9 @@ def build_catalog() -> dict:
     rng = random.Random(SEED)
     tracks: list[dict] = []
     axis = 1
+    # Dokumento pavadinimai užimami iš anksto, kad užpildas su jais nesutaptų
+    # ir nepadarytų atsitiktinio dublikato.
+    used_titles: set[str] = {row[1] for row in DOCUMENT_TRACKS}
 
     # --- Klientas t-77: užklausos daina ---
     # Užklausos vektorius yra pati ašis e0, todėl kosinusas su kandidatu
@@ -164,7 +184,7 @@ def build_catalog() -> dict:
             tracks.append(
                 make_entry(
                     f"t-{song_number:04d}", TENANT_A,
-                    f"{rng.choice(TITLE_PARTS_FIRST)} {rng.choice(TITLE_PARTS_SECOND)}",
+                    unique_title(rng, used_titles),
                     artist,
                     cosine_to_query=rng.uniform(0.10, 0.85),
                     axis=axis,
@@ -198,7 +218,7 @@ def build_catalog() -> dict:
             tracks.append(
                 make_entry(
                     f"t-{song_number:04d}", TENANT_B,
-                    f"{rng.choice(TITLE_PARTS_FIRST)} {rng.choice(TITLE_PARTS_SECOND)}",
+                    unique_title(rng, used_titles),
                     artist,
                     cosine_to_query=rng.uniform(0.10, 0.85),
                     axis=axis,

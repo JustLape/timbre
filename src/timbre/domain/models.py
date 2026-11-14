@@ -62,6 +62,12 @@ class FilterSpec:
 @dataclass(frozen=True)
 class CandidatePool:
     candidates: list[Track]
+    # Kiek kliento dainų apskritai buvo matoma PRIEŠ filtrus (be užklausos
+    # dainos). Be šio skaičiaus neįmanoma pasakyti, ar filtras ką nors atmetė:
+    # survivors_per_filter reikšmės to neatskleidžia, kai visi filtrai aktyvūs
+    # ir atmeta tą patį rinkinį. Laukas privalomas sąmoningai — jo pamiršti
+    # negalima, nes be jo atsakymas būtų tyliai neteisingas.
+    visible_count: int
     survivors_per_filter: dict[str, int] = field(default_factory=dict)
 
 

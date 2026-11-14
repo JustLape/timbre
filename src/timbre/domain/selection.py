@@ -92,7 +92,11 @@ def remove_duplicates(
 
     for candidate in scored:
         title = normalize_title(candidate.track.title)
-        is_duplicate = title in kept_titles
+        # Tuščias sunormintas pavadinimas NĖRA sutapimas. „Live", „Remix",
+        # „(Live)" ir „!!!" visi normalizuojasi į "", ir be šios sąlygos
+        # antroji tokia daina būtų atmesta kaip pirmosios dublikatas, nors
+        # apie jų panašumą nieko nežinome.
+        is_duplicate = bool(title) and title in kept_titles
         if not is_duplicate:
             for already in kept:
                 key = pairwise_key(candidate.track.song_id, already.track.song_id)
@@ -104,7 +108,8 @@ def remove_duplicates(
             removed += 1
         else:
             kept.append(candidate)
-            kept_titles.add(title)
+            if title:
+                kept_titles.add(title)
 
     return kept, removed
 
@@ -165,13 +170,13 @@ def select_diverse(
     selected: list[ScoredTrack] = []
 
     while remaining and len(selected) < limit:
-        if not selected:
-            best = min(remaining, key=lambda c: (-c.total_score, c.track.song_id))
-        else:
-            best = min(
-                remaining,
-                key=lambda c: (-_adjusted_score(c, selected, pairwise), c.track.song_id),
-            )
+        # Pirmam elementui atskiros šakos nereikia: kai atrinktų dar nėra,
+        # bauda yra 0, o MMR_RELEVANCE*balas yra monotoninė balo funkcija,
+        # tad didžiausią pataisytą vertę turi būtent didžiausio balo daina.
+        best = min(
+            remaining,
+            key=lambda c: (-_adjusted_score(c, selected, pairwise), c.track.song_id),
+        )
         selected.append(best)
         remaining.remove(best)
 

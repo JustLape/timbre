@@ -11,7 +11,7 @@ pirmiausia būtų pasakyta tai, kas labiausiai sutampa.
 Modulis grynas: tekstai grąžinami sąrašu, niekas nespausdinama.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping
 
 from .constants import INSTRUMENTAL_THRESHOLD, MIN_EXPLANATIONS, MOOD_INSTRUMENTAL
 from .models import Features, ScoredTrack, Track
@@ -94,15 +94,34 @@ def explain(
 
     if len(explanations) < min_count:
         explanations.extend(
-            _fallbacks(vector, candidate.total_score, min_count - len(explanations))
+            _fallbacks(scores, candidate.total_score, min_count - len(explanations))
         )
     return explanations
 
 
-def _fallbacks(vector_score: float, total_score: float, needed: int) -> Sequence[str]:
-    """Bendros frazės, kad garantija „bent min_count" laikytųsi visada."""
-    general = [
-        f"bendras skambėjimo panašumas {_format_score(vector_score)}",
-        f"bendras balas {_format_score(total_score)}",
-    ]
+# Kriterijų vardai paaiškinimams. Atskirti nuo vidinių raktų sąmoningai:
+# raktai yra duomenų struktūros dalis, o šie tekstai matomi naudotojui.
+_CRITERION_NAMES = {
+    "vector": "skambėjimo panašumas",
+    "tempo": "tempo sutapimas",
+    "key": "tonacijų dermė",
+    "loudness": "garsumo artumas",
+    "mood": "nuotaikos artumas",
+}
+
+
+def _fallbacks(
+    scores: Mapping[str, float],
+    total_score: float,
+    needed: int,
+) -> list[str]:
+    """Bendros frazės, kad garantija „bent min_count" laikytųsi visada.
+
+    Frazių sugeneruojama tiek, kiek yra kriterijų, plius bendras balas, todėl
+    garantija laikosi ir tada, kai `min_count` didesnis už 2.
+    """
+    general = [f"bendras balas {_format_score(total_score)}"]
+    for name, score in sorted(scores.items(), key=lambda pair: -pair[1]):
+        label = _CRITERION_NAMES.get(name, name)
+        general.append(f"{label} {_format_score(score)}")
     return general[:needed]

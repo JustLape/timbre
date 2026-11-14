@@ -129,10 +129,14 @@ def format_table(result: SearchResult) -> str:
                 "\nRezultatų mažiau nei prašyta; filtrai nieko neatmetė "
                 "(apribojo dublikatų šalinimas arba atlikėjo limitas)"
             )
+    # Trečiasis skaičius NĖRA „įvairovė atmetė": įvairovės žingsnis rikiuoja,
+    # o ne šalina. Tai dainos, kurios liko už prašyto kiekio ribos. Duomenų
+    # rakto (`diversity`) nekeičiame — jis yra kontrakto dalis, o keičiamas
+    # tik naudotojui matomas tekstas.
     lines.append(
         f"\nPašalinta: dublikatų {result.removal_counts.get('duplicates', 0)}, "
-        f"pagal atlikėjo limitą {result.removal_counts.get('artist_limit', 0)}, "
-        f"pagal įvairovę {result.removal_counts.get('diversity', 0)}"
+        f"pagal atlikėjo limitą {result.removal_counts.get('artist_limit', 0)}; "
+        f"neįtilpo į prašytą kiekį {result.removal_counts.get('diversity', 0)}"
     )
     return "\n".join(lines)
 

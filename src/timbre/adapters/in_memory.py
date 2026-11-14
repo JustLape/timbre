@@ -96,6 +96,7 @@ class InMemoryCatalog:
 
         return CandidatePool(
             candidates=matching[:pool_size],
+            visible_count=len(visible),
             survivors_per_filter=survivors_per_filter,
         )
 
