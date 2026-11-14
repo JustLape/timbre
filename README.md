@@ -6,9 +6,24 @@ Sistema pagal vieną pateiktą dainą suranda panašiai **skambančias** dainas 
 dainos garsą, o ne pagal atlikėjo žanrą ar klausymo statistiką. Rezultatus galima susiaurinti
 pagal tempą ir instrumentalumą, o kiekvienas pasiūlymas paaiškinamas, kodėl jis pateko į sąrašą.
 
-**II etapo būsena:** veikiantis prototipas su komandinės eilutės sąsaja. Pagrindinis modulis –
-panašumo rikiavimo modulis – įgyvendintas visas: penkių kriterijų svorinis balas, pasikartojimų
-šalinimas, atlikėjo limitas, rezultatų įvairovė, dalinis rezultatas ir paaiškinimai.
+**Būsena: II užduotis (veikiantis prototipas) padaryta.** Pagrindinis modulis – panašumo
+rikiavimo modulis – įgyvendintas visas: penkių kriterijų svorinis balas, pasikartojimų šalinimas,
+atlikėjo limitas, rezultatų įvairovė, dalinis rezultatas ir paaiškinimai. Sąsaja – komandinė eilutė.
+
+Projekte vartojami ir žodžiai „I/II/III etapas" – tai tie patys dalykai kaip dėstytojo
+„I/II/III užduotis" arba „kursinio darbo I/II/III dalis".
+
+### Ką II užduotis pateikia pagal kiekvieną reikalavimą
+
+| Reikalavimas | Kur tai yra |
+|---|---|
+| 1. Veikianti pagrindinė funkcija | `python -m timbre --song-id t-0000 --tenant t-77` grąžina surikiuotą sąrašą; verslo taisyklės – `domain/scoring.py` ir `domain/selection.py`; keturi klaidų kodai – `domain/errors.py` |
+| 2. Aiškus kodas | `domain/` (logika) · `ports/` (sąsaja) · `adapters/` (duomenys) · `app/` (orkestracija) · `cli.py` (sąsaja). Pritaikytas šablonas – Strategy |
+| 3. Automatiniai testai | **70 testų**, visi atmintyje: `tests/` septyni failai, įprastas, ribinis ir klaidos atvejai plius penki klientų atskyrimo testai |
+| 4. Kelių klientų palaikymas | Du klientai `t-77` ir `t-88` su savais duomenimis; matomumo sąlyga vienoje vietoje – `adapters/in_memory.py` funkcija `_visible()` |
+| 5. Paleidimas ir README | Šis failas: įrankiai, konfigūracija, viena paleidimo komanda, testų komanda, pavyzdiniai duomenys, šeši demonstravimo žingsniai |
+
+Pilnas II užduoties aprašymas: [docs/2-uzduotis-prototipas.md](docs/2-uzduotis-prototipas.md).
 
 ---
 
@@ -83,8 +98,14 @@ Išėjimo kodai: `0` pavyko · `1` sistemos klaida (į `stderr` spausdinama `[KO
 python -m pytest -q
 ```
 
-37 testai, visi atmintyje – be tinklo, failų sistemos ir duomenų bazės, todėl užtrunka
+70 testų, visi atmintyje – be tinklo, failų sistemos ir duomenų bazės, todėl užtrunka
 mažiau nei sekundę ir demonstracijos duomenų nepaveikia.
+
+Testų skaičius išaugo nuo 37 iki 70 po to, kai testai buvo patikrinti **mutacijomis**: kodas
+sąmoningai laužomas po vieną vietą ir tikrinama, ar testai tai pagauna. Pirmas bandymas parodė,
+kad 15 iš 18 sulaužymų testai praleidžia – pavyzdžiui, bendro balo dalybos iš svorių sumos
+pašalinimo niekas nepagaudavo, nes visuose testuose svorių suma buvo lygiai 1,0. Dabar tos
+spragos uždarytos.
 
 Svarbiausias yra `tests/test_scoring.py::test_dokumento_pavyzdys_atkuria_visus_sesis_balus`:
 jis atkuria patvirtinto I etapo dokumento 3 skyriaus pavyzdį – visus šešis kandidatų balus
@@ -272,9 +293,9 @@ Visi keturi yra sąmoningi prototipo supaprastinimai, o ne nespėtas darbas.
    privačioje funkcijoje `_visible()`, kurią kviečia visi metodai; ir atskiri izoliacijos
    testai fiksuoja elgesį. **Ko neteigiu:** kad apsaugos lygis toks pat kaip RLS – jis žemesnis.
 
-### Dvi vietos, kur patvirtintas dokumentas sau prieštarauja
+### Trys vietos, kur patvirtintas dokumentas sau prieštarauja
 
-Abi rastos tikrinant dokumento skaičius, ne spėjant.
+Visos trys rastos tikrinant ir perskaičiuojant dokumento skaičius, ne spėjant.
 
 1. **`cos(K1,K5) = 0,55` yra geometriškai neįmanoma.** Kai `cos(q,K1) = 0,91` ir
    `cos(q,K5) = 0,88`, trikampio nelygybė leidžia tik intervalą `[0,6039; 0,9977]`. Todėl
@@ -289,6 +310,14 @@ Abi rastos tikrinant dokumento skaičius, ne spėjant.
    K4 (0,877): įvairovės taisyklė sąmoningai perstato mažesnio balo kandidatą į priekį.
    Įgyvendinta 7 taisyklė, nes ji turi ir formulę, ir pilnai suskaičiuotą pavyzdį. Garantija,
    kuri tikrai laikosi ir yra testuojama: **pirmas rezultatas visada yra didžiausio balo.**
+3. **Tonacijos pasitikėjimo pagrindimas sako priešingai, nei daro formulė.** Dokumento
+   2 taisyklė teigia, kad netiksliai nustatyta tonacija „beveik neturi įtakos balui". Tikrovėje
+   svorinėje sumoje su fiksuotu vardikliu `pasitikėjimas → 0` reiškia `tonacijos balas → 0`, t. y.
+   **maksimalią baudą**: iki 0,05 bendro balo, o visas skirtumas tarp K1 (0,908) ir K4 (0,877)
+   yra tik 0,031. Taigi mechanizmas, aprašytas kaip apsauga, praktikoje gali nulemti eilę – ir
+   baudžia būtent tą iškreiptą gitarinę muziką, kurią turėjo ginti. Formulė įgyvendinta taip,
+   kaip dokumente; teisingas sprendimas (vardiklį skaičiuoti tik iš kriterijų, kurie turi
+   duomenų) yra III užduoties darbas, nes jis keistų patvirtintą balų skaičiavimą.
 
 ## Ko sąmoningai nėra – tai III etapas
 
@@ -308,8 +337,8 @@ Vektorių gamyba yra atskiras, iš anksto vykdomas etapas.
 
 ## Dokumentai
 
-| Etapas | Dokumentas | Būsena |
+| Užduotis | Dokumentas | Būsena |
 |---|---|---|
 | I. Projektavimo dokumentas | [docs/1-etapas-projektavimo-dokumentas.md](docs/1-etapas-projektavimo-dokumentas.md) | Pateikta, patvirtinta |
-| II. Veikiantis prototipas | šis README ir kodas | Pateikta |
+| II. Veikiantis prototipas | [docs/2-uzduotis-prototipas.md](docs/2-uzduotis-prototipas.md) + šis README + kodas | Pateikta |
 | III. Galutinis sprendimas ir architektūros dokumentas | – | Rengiama |
