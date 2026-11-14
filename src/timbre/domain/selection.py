@@ -1,22 +1,57 @@
-"""Atranka: dublikatai, atlikėjo limitas, įvairovė. Specifikacijos 7 skyrius.
+"""Čia iš surikiuoto sąrašo IŠRENKAMAS GALUTINIS DEŠIMTUKAS.
 
-Taisyklės iš patvirtinto I etapo dokumento 3 skyriaus (5, 6 ir 7 taisyklės).
-Tvarka yra verslo taisyklė, ne įgyvendinimo detalė:
+KĄ ŠIS FAILAS DARO
+------------------
+Balai jau suskaičiuoti (tai padarė scoring.py), dainos jau surikiuotos nuo
+geriausios. Bet paimti pirmas dešimt negalima — gautum šlamštą.
 
-    dublikatai -> atlikėjo limitas -> įvairovė
+Trys problemos ir trys taisyklės, BŪTENT ŠIA TVARKA:
 
-Visos trys funkcijos gauna JAU pagal balą mažėjančiai surikiuotą sąrašą ir
-grąžina pašalintų kiekį, kad app/search_service.py galėtų užpildyti
-removal_counts.
+1. DUBLIKATAI
+   Problema: ta pati daina kataloge gali būti penkiais variantais —
+   „Nightfield", „Nightfield (Remix)", „Nightfield - Radio Edit".
+   Visos skamba beveik vienodai, tad visos gaus aukštą balą, ir dešimtuke
+   atsidurtų ta pati daina penkis kartus.
+   Sprendimas: iš pavadinimo nuimamos versijų žymės, ir jei po to pavadinimai
+   sutampa — antroji išmetama. Arba jei jų tarpusavio panašumas > 0,98.
 
-Kandidatų tarpusavio panašumai (pairwise) čia PRIIMAMI argumentu ir niekada
-neskaičiuojami iš vektorių. Taip yra dėl dviejų priežasčių. Pirma, tai leidžia
-atkurti dokumento pavyzdį: jame tarpusavio kosinusai pateikti kaip
-ilustratyvūs duomenys, nepriklausomi nuo vektorių (prie cos(q,K1) = 0,91 ir
-cos(q,K5) = 0,88 trikampio nelygybė leistų cos(K1,K5) tik intervale
-[0,6039; 0,9977], o pavyzdyje nurodyta 0,55). Antra, tai ir teisingas
-projektavimo sprendimas savaime: tarpusavio panašumus gali pateikti indeksas,
-kuris juos jau turi.
+2. ATLIKĖJO LIMITAS
+   Problema: to paties atlikėjo dainos įrašytos toje pačioje studijoje ir
+   skamba panašiai. Be ribojimo visą dešimtuką užimtų vienas albumas.
+   Sprendimas: užklausos atlikėjas išmetamas VISADA (ieškai ne jo paties),
+   o iš kitų paliekama ne daugiau nei limitas, numatytai viena daina.
+
+3. ĮVAIROVĖ
+   Problema: dainos, panašios į užklausą, paprastai panašios ir viena į kitą.
+   Gautum dešimt beveik vienodų rezultatų.
+   Sprendimas: renkama po vieną, ir kiekvienam kandidatui balas sumažinamas
+   tiek, kiek jis panašus į JAU ATRINKTAS. Formulė:
+   0,7 x balas - 0,3 x panašumas su atrinktomis.
+
+KODĖL TVARKA SVARBI
+-------------------
+Jei įvairovę paleistum pirma, ji rinktųsi dainas, kurias atlikėjo limitas
+vis tiek išmes. Tvarka yra taisyklė, ne įgyvendinimo smulkmena.
+
+KODĖL PANAŠUMAI TARP KANDIDATŲ ATEINA KAIP ARGUMENTAS
+-----------------------------------------------------
+1 ir 3 taisyklėms reikia žinoti, kiek kandidatai panašūs VIENAS Į KITĄ.
+Šis failas tų skaičių NESKAIČIUOJA — jis juos gauna argumentu `pairwise`.
+Skaičiuoja app/search_service.py.
+
+Taip padaryta dėl dviejų priežasčių.
+
+Pirma, praktinė. Patvirtintame dokumente nurodyta cos(K1,K5) = 0,55. Tokio
+skaičiaus negali būti: kai K1 ir K5 abi labai panašios į užklausą (0,91 ir
+0,88), jos negali būti labai nepanašios viena kitai — geometrija leidžia tik
+nuo 0,6039 iki 0,9977. Priimant skaičius kaip duomenis, dokumento pavyzdys
+atkuriamas tiksliai toks, koks jis yra.
+
+Antra, projektavimo. Tikroje sistemoje tuos panašumus dažnai jau turi
+paieškos indeksas, tad jų perskaičiavimas būtų dvigubas darbas.
+
+Visos trys funkcijos gauna jau surikiuotą sąrašą ir grąžina, kiek dainų
+pašalino — kad būtų galima parodyti „pašalinta: dublikatų 1".
 """
 
 import re

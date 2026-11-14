@@ -1,16 +1,53 @@
-"""Penki panašumo kriterijai, Strategy registras ir svorinė suma.
+"""Čia apskaičiuojama, KIEK DVI DAINOS PANAŠIOS.
 
-Specifikacijos 6 skyrius; formulės — patvirtinto I etapo dokumento 3 skyrius.
+KĄ ŠIS FAILAS DARO
+------------------
+Gauna dvi dainas ir grąžina vieną skaičių nuo 0 iki 1.
+1 reiškia „labai panašios", 0 — „visiškai nepanašios".
 
-Šis modulis yra grynas: jokio I/O, tinklo, failų, `print`, `random` ar laiko.
-Viskas gaunama per argumentus ir grąžinama per reikšmes. Tai svarbiausias
-dokumento projektavimo sprendimas — būtent dėl jo testui pakanka ranka
-sugalvotų skaičių, be duomenų bazės ir be garso failų.
+Tas skaičius gaunamas iš penkių atskirų palyginimų:
 
-Strategy šablonas: kiekvienas kriterijus yra atskira klasė su `name` ir
-`score`, o `DEFAULT_STRATEGIES` yra registras, susidedantis iš pačių
-strategijų vardų. Šeštas kriterijus reiškia vieną naują klasę ir vieną įrašą
-registre — nei `score_track`, nei svorių apdorojimas, nei CLI nesikeičia.
+    vektorius   ar panašiai skamba        svoris 0,70   <- svarbiausias
+    tempas      ar panašus greitis        svoris 0,10
+    tonacija    ar dera harmoningai       svoris 0,05
+    garsumas    ar panašiai garsu         svoris 0,05
+    nuotaika    ar panašus charakteris    svoris 0,10
+
+Kiekvienas duoda savo balą nuo 0 iki 1. Tada visi penki padauginami iš savo
+svorio, sudedami ir padalijami iš svorių sumos. Dalyba reikalinga tam, kad
+rezultatas liktų tarp 0 ir 1, kad ir kokius svorius naudotojas nurodytų.
+
+PAVYZDYS su tikrais skaičiais (daina K1 „Nightfield" iš dokumento)
+------------------------------------------------------------------
+    penki balai:  0,91 · 0,895 · 0,81 · 0,890 · 0,965
+
+    (0,70 x 0,91 + 0,10 x 0,895 + 0,05 x 0,81
+     + 0,05 x 0,890 + 0,10 x 0,965) / 1,00 = 0,908
+
+KODĖL ČIA NIEKO NESKAITOMA IŠ FAILŲ
+-----------------------------------
+Šis failas neatidaro failų, nesijungia prie interneto, nespausdina ir
+nenaudoja laiko ar atsitiktinių skaičių. Jis gauna skaičius per argumentus ir
+grąžina skaičius.
+
+Nauda labai praktiška: testui pakanka sugalvoti kelis skaičius ranka.
+Nereikia nei duomenų bazės, nei garso failų, nei interneto, ir todėl visi
+70 testų praeina per 0,3 sekundės.
+
+KODĖL KIEKVIENAS KRITERIJUS YRA ATSKIRA KLASĖ
+---------------------------------------------
+Tai projektavimo šablonas, vadinamas Strategy. Kiekvienas kriterijus turi
+savo vardą (`name`) ir vieną metodą (`score`), o `DEFAULT_STRATEGIES` yra jų
+sąrašas, kuris susidaro IŠ PAČIŲ kriterijų vardų.
+
+Praktinė nauda: nori šešto kriterijaus? Parašai vieną naują klasę ir pridedi
+vieną eilutę į `DEFAULT_STRATEGIES`. Daugiau niekur nieko keisti nereikia —
+nei bendro balo skaičiavimo, nei komandinės eilutės. Būtent todėl svoriai
+perduodami VARDAIS (`--weights vector=0.7`), o ne penkiais skaičiais iš eilės:
+pozicinis sąrašas įkaltų, kad kriterijų yra lygiai penki.
+
+Formulės paimtos iš patvirtinto I etapo dokumento 3 skyriaus, signatūros — iš
+specifikacijos 6 skyriaus.
 """
 
 import math

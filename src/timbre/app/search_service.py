@@ -1,15 +1,47 @@
-"""Paieškos scenarijaus orkestracija. Specifikacijos 9 skyrius.
+"""Čia surašyta VISA PAIEŠKOS EIGA nuo pradžios iki pabaigos.
 
-Šis sluoksnis nieko neskaičiuoja pats — jis sujungia `domain` funkcijas su
-katalogu, gaunamu per `ports.repository.CatalogRepository` sąsają. Konkreti
-katalogo realizacija čia nežinoma: ji paduodama per konstruktorių (priklausomybių
-injekcija), todėl tą patį scenarijų galima paleisti ir ant JSON failo, ir ant
-atminties katalogo testuose.
+KĄ ŠIS FAILAS DARO
+------------------
+Jis pats beveik nieko neskaičiuoja. Jo darbas — teisinga tvarka pakviesti
+kitus ir perduoti rezultatus toliau. Maždaug kaip receptas: jame surašyta,
+ką daryti ir kada, bet pjausto ir verda kiti failai.
 
-Vienas dalykas, kurį šis sluoksnis TIKRAI skaičiuoja, yra kandidatų tarpusavio
-kosinusai (`pairwise`). Tai sąmoningas darbų padalijimas: `domain` juos priima
-argumentu ir niekada neskaičiuoja iš vektorių, todėl testai gali perduoti
-dokumento reikšmes, o paleidimas veikia su tikrais vektoriais.
+Devyni žingsniai, visada ta pačia tvarka:
+
+    1. Patikrinti svorius               -> scoring.validate_weights
+    2. Patikrinti filtrus ir limitus    -> čia pat, _validate_filters
+    3. Rasti užklausos dainą            -> repo.get_track
+    4. Paimti kandidatus su filtrais    -> repo.fetch_candidates
+    5. Suskaičiuoti kandidatų           -> čia pat, _compute_pairwise
+       tarpusavio panašumus
+    6. Suskaičiuoti balus ir surikiuoti -> scoring.score_all
+    7. Dublikatai, atlikėjas, įvairovė  -> selection.*
+    8. Paaiškinimai                     -> explain.explain
+    9. Surinkti atsakymą                -> models.SearchResult
+
+Pirmi du žingsniai yra patikros. Jos daromos PIRMA sąmoningai: nėra prasmės
+skaityti katalogą, jei užklausa vis tiek bloga.
+
+KODĖL ČIA NEŽINOMA, IŠ KUR ATEINA DAINOS
+----------------------------------------
+Šis failas niekada nemini nei JSON, nei duomenų bazės. Jis žino tik, kad
+gaus kažką, kas moka tris dalykus: `get_track`, `fetch_candidates` ir
+`remove_track`. Tas „kažkas" paduodamas į konstruktorių.
+
+Praktinė nauda: testuose paduodamas atminties katalogas (greitas, nieko
+neskaito iš disko), o paleidžiant — JSON failas. Tas pats kodas, skirtingi
+duomenų šaltiniai. Norint pereiti prie duomenų bazės, užtektų parašyti dar
+vieną tokį „kažką" ir pakeisti vieną eilutę cli.py.
+
+Terminas, kurio ieškotum vadovėlyje: priklausomybių injekcija.
+
+VIENINTELIS DALYKAS, KURĮ ŠIS FAILAS TIKRAI SKAIČIUOJA
+------------------------------------------------------
+5 žingsnis: kiek kandidatai panašūs vienas į kitą (`pairwise`).
+
+To reikia dublikatams ir įvairovei. Skaičiuojama būtent čia, o ne
+`domain/selection.py`, kad `domain` galėtų tuos skaičius GAUTI. Kodėl tai
+svarbu — paaiškinta `domain/selection.py` viršuje.
 """
 
 from collections.abc import Mapping
