@@ -24,5 +24,17 @@ MIN_EXPLANATIONS = 2             # paaiškinimų vienam rezultatui
 MOOD_INSTRUMENTAL = "instrumentinė"   # nuotaikos rakto pavadinimas
 MOOD_DARK = "tamsi"
 
+# Bendro katalogo žyma. Patvirtinto I etapo dokumento 4 skyrius pažodžiui:
+# „Žyma `bendras` pažymi viešąjį katalogą, kurį mato visi."
+#
+# Tai ne eilinė konstanta, o viso matomumo ašis:
+#   - `bendras` dainas mato VISI, ir tik jos gali atsidurti ATSAKYME;
+#   - kliento įkeltas dainas mato TIK jis, ir jos gali būti tik UŽKLAUSA.
+#
+# Neprisijungęs žmogus paduoda patį `bendras` kaip savo tenant_id, todėl
+# atskiro „be kliento" atvejo kode nereikia, o tenant_id lieka privalomas
+# be numatytosios reikšmės.
+SHARED_CATALOG = "bendras"
+
 DEFAULT_WEIGHTS = {"vector": 0.70, "tempo": 0.10, "key": 0.05,
                    "loudness": 0.05, "mood": 0.10}

@@ -32,7 +32,7 @@ grąžina skaičius.
 
 Nauda labai praktiška: testui pakanka sugalvoti kelis skaičius ranka.
 Nereikia nei duomenų bazės, nei garso failų, nei interneto, ir todėl visi
-70 testų praeina per 0,3 sekundės.
+83 testai praeina per 0,3 sekundės.
 
 KODĖL KIEKVIENAS KRITERIJUS YRA ATSKIRA KLASĖ
 ---------------------------------------------

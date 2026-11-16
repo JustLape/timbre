@@ -78,6 +78,10 @@ class JsonCatalogRepository:
     def get_track(self, tenant_id: str, song_id: str) -> Track | None:
         return self._catalog.get_track(tenant_id, song_id)
 
+    def find_by_title_artist(self, tenant_id: str, title: str,
+                             artist: str | None = None) -> list[Track]:
+        return self._catalog.find_by_title_artist(tenant_id, title, artist)
+
     def fetch_candidates(
         self,
         tenant_id: str,

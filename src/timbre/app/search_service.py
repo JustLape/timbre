@@ -171,6 +171,28 @@ class SearchService:
                 f"dainos {song_id!r} kliento {tenant_id!r} kataloge nėra",
             )
 
+    def find_song(
+        self, *, tenant_id: str, title: str, artist: str | None = None
+    ) -> list[Track]:
+        """Randa užklausos dainą pagal pavadinimą, kai song_id nežinomas.
+
+        Tai „nuorodos" eiga be jokio tinklo: iš nuorodos gaunamas atlikėjas ir
+        pavadinimas, o čia jie paverčiami į kataloge esančią dainą. Būtent
+        todėl paieška be paskyros apskritai įmanoma — žmogus nežino song_id.
+
+        Nieko neradus keliama DAINA_NERASTA. Radus daugiau nei vieną,
+        grąžinamos VISOS: pasirinkimas priklauso naudotojui, nes tyliai paėmus
+        pirmą būtų ieškoma panašių į visai kitą kūrinį.
+        """
+        found = self._repo.find_by_title_artist(tenant_id, title, artist)
+        if not found:
+            kas = f"{title!r}" if artist is None else f"{title!r} ({artist})"
+            raise TimbreError(
+                ErrorCode.DAINA_NERASTA,
+                f"dainos {kas} kliento {tenant_id!r} kataloge nėra",
+            )
+        return found
+
     @staticmethod
     def _validate_filters(filters: FilterSpec, limit: int, artist_limit: int) -> None:
         if limit <= 0:

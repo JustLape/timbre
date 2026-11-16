@@ -77,8 +77,17 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m timbre",
         description="Timbre — panašiai skambančių dainų paieška pagal dainos garsą.",
     )
-    parser.add_argument("--song-id", required=True, help="užklausos dainos id")
-    parser.add_argument("--tenant", required=True, help="kliento id, pvz. t-77")
+    # Dainą galima nurodyti DVIEM būdais, ir tai atitinka dvi produkto eigas:
+    # prisijungęs žmogus žino savo įkeltos dainos id, o atėjęs su nuoroda
+    # težino pavadinimą ir atlikėją. Grupė yra `required`, tad vieną iš dviejų
+    # nurodyti privaloma, o abu kartu argparse atmeta pats.
+    kas = parser.add_mutually_exclusive_group(required=True)
+    kas.add_argument("--song-id", help="užklausos dainos id")
+    kas.add_argument("--title", help="užklausos dainos pavadinimas")
+    parser.add_argument("--artist", default=None,
+                        help="atlikėjas, tikslinantis --title")
+    parser.add_argument("--tenant", required=True,
+                        help="kliento id, pvz. t-77; bendras katalogas — bendras")
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
                         help=f"rezultatų kiekis (numatyta {DEFAULT_LIMIT})")
     parser.add_argument("--artist-limit", type=int, default=DEFAULT_ARTIST_LIMIT,
@@ -94,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true",
                         help="išvestis I etapo dokumento JSON forma")
     parser.add_argument("--remove", action="store_true",
-                        help="pašalinti --song-id dainą iš kliento katalogo")
+                        help="pašalinti savo įkeltą dainą (bendro katalogo – negalima)")
     return parser
 
 
@@ -176,14 +185,35 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
+        # Pavadinimas paverčiamas į song_id PRIEŠ viską kitą: toliau visas
+        # kodas dirba tik su id, tad dvi įvesties eigos susilieja į vieną.
+        song_id = args.song_id
+        if song_id is None:
+            found = service.find_song(
+                tenant_id=args.tenant, title=args.title, artist=args.artist
+            )
+            if len(found) > 1:
+                print(
+                    f"Pagal „{args.title}“ rasta {len(found)} dainos. "
+                    f"Nurodyk vieną su --song-id:",
+                    file=sys.stderr,
+                )
+                for track in found:
+                    print(
+                        f"  {track.song_id}  {track.title} — {track.artist}",
+                        file=sys.stderr,
+                    )
+                return 1
+            song_id = found[0].song_id
+
         if args.remove:
-            service.remove(tenant_id=args.tenant, song_id=args.song_id)
-            print(f"Daina {args.song_id} pašalinta iš kliento {args.tenant} katalogo.")
+            service.remove(tenant_id=args.tenant, song_id=song_id)
+            print(f"Daina {song_id} pašalinta iš kliento {args.tenant} katalogo.")
             return 0
 
         result = service.search(
             tenant_id=args.tenant,
-            song_id=args.song_id,
+            song_id=song_id,
             filters=FilterSpec(
                 bpm_min=args.bpm_min,
                 bpm_max=args.bpm_max,

@@ -14,7 +14,12 @@ import math
 
 import pytest
 
-from timbre.domain.constants import MOOD_DARK, MOOD_INSTRUMENTAL, VECTOR_DIM
+from timbre.domain.constants import (
+    MOOD_DARK,
+    MOOD_INSTRUMENTAL,
+    SHARED_CATALOG,
+    VECTOR_DIM,
+)
 from timbre.domain.models import Features, ScoredTrack, Track
 from timbre.domain.scoring import DEFAULT_STRATEGIES, score_all
 
@@ -93,11 +98,16 @@ def build_track(
     *,
     title: str = "Daina",
     artist: str = "Atlikejas",
-    tenant_id: str = "t-77",
+    tenant_id: str = SHARED_CATALOG,
     features: Features | None = None,
     **feature_kwargs: object,
 ) -> Track:
-    """Track su protingomis numatytosiomis reikšmėmis."""
+    """Track su protingomis numatytosiomis reikšmėmis.
+
+    Numatytasis katalogas yra BENDRAS, nes atsakymai imami tik iš jo. Daina,
+    sukurta be `tenant_id`, yra kandidatė — paskyros įkeltą dainą reikia
+    nurodyti sąmoningai.
+    """
     return Track(
         song_id=song_id,
         tenant_id=tenant_id,
@@ -208,17 +218,32 @@ def filter_catalog_tracks() -> list[Track]:
 
 
 @pytest.fixture
-def two_tenant_tracks() -> list[Track]:
-    """Du klientai viename kataloge: t-77 ir t-88.
+def catalog_with_two_accounts() -> list[Track]:
+    """Bendras katalogas ir dvi paskyros su savo įkeltomis dainomis.
 
-    Abiejų dainos turi tą patį song_id rinkinį — būtent taip tikrinama, ar
-    atskyrimas tikrai veikia, o ne tik atrodo.
+    Sudėtis atitinka produkto modelį:
 
-    Be to, t-88 turi vieną dainą `s-999`, kurios t-77 neturi. Tai
-    natūraliausias pažeidimo kelias: t-77 žino svetimą id ir bando jį
+        bendras   s-900..s-903 — vienintelis atsakymų šaltinis
+        t-77      s-100 ir s-200..s-202 — šios paskyros įkeltos dainos
+        t-88      tie patys id ir dar s-999, kurios t-77 neturi
+
+    Abiejų paskyrų `song_id` rinkiniai sąmoningai SUTAMPA: kitaip testas
+    praeitų net ir visiškai neveikiant atskyrimui. O `s-999` yra
+    natūraliausias pažeidimo kelias — t-77 žino svetimą id ir bando jį
     perskaityti arba pašalinti.
     """
-    tracks: list[Track] = []
+    tracks: list[Track] = [
+        build_track(
+            f"s-{900 + index}",
+            title=f"Bendra daina {index}",
+            artist=f"Bendras atlikejas {index}",
+            features=build_features(
+                cosine_to_query=0.90 - index * 0.05, axis=40 + index
+            ),
+        )
+        for index in range(4)
+    ]
+
     for tenant, prefix, axis_base in (("t-77", "A", 1), ("t-88", "B", 20)):
         tracks.append(
             build_track(
@@ -264,7 +289,7 @@ def scored_factory():
         *,
         title: str = "Daina",
         artist: str = "Atlikejas",
-        tenant_id: str = "t-77",
+        tenant_id: str = SHARED_CATALOG,
     ) -> ScoredTrack:
         return ScoredTrack(
             track=build_track(
