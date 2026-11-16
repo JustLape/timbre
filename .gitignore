@@ -1,10 +1,17 @@
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+*.egg-info/
+
+# Privatus darbo kontekstas, ne projekto dalis
 CLAUDE.md
 KONTEKSTAS.md
 2-etapas-specifikacija.md
-*.egg-info/
 
+# Tyrimo medziaga: naudinga man, bet ne kursinio darbo rezultatas
 research_notes/
 reports/
+
+# Irankiu busena, atsiranda pati
+.claude-flow/
