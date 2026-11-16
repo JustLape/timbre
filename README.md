@@ -324,12 +324,37 @@ Visos trys rastos tikrinant ir perskaičiuojant dokumento skaičius, ne spėjant
 HTTP API, Docker, PostgreSQL su `pgvector`, Redis, Essentia ir tikras garso apdorojimas,
 prisijungimas ir rolės, kokybės atributų įrodymai, našumo matavimai, 100 000 dainų katalogas.
 
+### Iš kur realiame darbe atsirastų dainos
+
+Prototipas to neatsako, bet klausimas akivaizdus, todėl atsakymas užrašytas čia. Patikrinta
+2026-11-16.
+
+Paieška **be savo skaičių neįmanoma**: kosinusui reikia abiejų vektorių, o 600 000 dainų
+atsiuntimas ir analizė kiekvienai užklausai reikštų apie 300 GB ir nuo 8 valandų iki
+7 dienų **vienai** užklausai. Tačiau pats vektorius ir yra būdas katalogo **nekaupti**:
+dainai pakanka ~178 baitų (vektorius, `song_id`, atlikėjas, sunormintas pavadinimas ir
+penki skaičiai), tad visos 600 000 dainų sutelpa į ~107 MB – maždaug 2 800 kartų mažiau
+nei garsas. Garsas po analizės nesaugomas.
+
+Taip pat patikrinta, ko **negalima** nupirkti. Panašumo API egzistuoja ir yra nemokamos,
+bet jos matuoja ne garsą: Jamendo `/tracks/similar` – „mostly based on tags", Last.fm
+`track.getSimilar` – „based on listening data", ListenBrainz – klausymo sesijos. Garsu
+pagrįstą panašumą prieš didelį svetimą katalogą kaip paslaugą teikia **niekas**, ir nė
+viena iš jų negrąžina paaiškinimo, kodėl daina panaši. Būtent tai ir yra šio modulio
+vieta. **Ko neteigiu:** kad panašumo matas čia naujas – kosinusas su svoriais yra
+standartas; naujas yra atrankos ir paaiškinimų sluoksnis virš jo.
+
+III etapo šaltinis, kuris duoda visus penkis kriterijus be jokio garso apdorojimo ir be
+licencijos apribojimų (CC0), yra AcousticBrainz iškrovos. Keistųsi tik
+`scripts/seed_catalog.py` ir atsirastų dar vienas `CatalogRepository` adapteris –
+`domain/` liktų nepaliestas.
+
 ## AI panaudojimas
 
 AI naudotas kaip pagalbinis įrankis rašant kodą (testų juodraščiai, `argparse` karkasas,
 katalogo generatorius) ir dokumentaciją. Laukiamos testų reikšmės **nėra** AI išvestis:
 visi šeši atraminio testo balai, Camelot žingsniai ir įvairovės reikšmės perskaičiuoti pagal
-dokumento formules ir sutampa su patvirtintu dokumentu. Abu aukščiau aprašyti dokumento
+dokumento formules ir sutampa su patvirtintu dokumentu. Visi trys aukščiau aprašyti dokumento
 prieštaravimai rasti būtent tikrinant, o ne priimant skaičius aklai.
 
 **Pats pagrindinis modulis AI nenaudoja** – jis gauna paruoštus skaičius ir tik skaičiuoja.

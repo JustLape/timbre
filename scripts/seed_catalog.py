@@ -14,6 +14,12 @@ supaprastinimas: formulės ir balų skaičiavimas yra tikri ir vykdomi užklauso
 metu, bet vektoriai nėra neuroninio tinklo išvestis. Laukas `feature_set`
 tam ir yra — III etape kataloge galės būti abu rinkiniai.
 
+Šis failas yra vienintelė vieta, kurią reikės pakeisti, kad kataloge atsirastų tikri
+duomenys: `domain/` vektorių negamina, o tik gauna. Patikrinta, kad 256 skaičių
+vektorius susideda iš AcousticBrainz CC0 iškrovų be jokio garso apdorojimo
+(13 `mfcc.mean` + 91 kovariacijos viršutinis trikampis + tie patys 13 ir 91 iš `gfcc`
+= 208, plius 48 spektriniai skaliarai). Užrašyta čia, kad nereikėtų ieškoti iš naujo.
+
 Vektorių konstrukcija ir kodėl būtent tokia
 -------------------------------------------
 Užklausos vektorius yra pirmoji bazės ašis q = e0. Kiekvienai kitai dainai

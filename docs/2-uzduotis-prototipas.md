@@ -269,3 +269,32 @@ Papildomai, kas paaiškėjo per šią užduotį: panašumo modelio konstantos (s
 niekada nebuvo išmatuotos, todėl III užduotyje jas reikia parinkti iš matavimo, o ne iš
 intuicijos. Kokybės vertinimui būtina išmesti to paties atlikėjo dainas — kitaip matuojama,
 ar sistema atpažįsta atlikėją, o ne ar randa panašią muziką.
+
+### Iš kur atsirastų tikros dainos
+
+Prototipas naudoja sugeneruotus vektorius, todėl klausimas „o iš kur realios dainos" lieka
+atviras. Atsakymas ištirtas atskirai (2026-11-16) ir užrašytas, nes jis lemia III užduoties
+architektūrą.
+
+Paieška be savo skaičių neįmanoma iš principo: kosinusui reikia **abiejų** vektorių, tad
+kandidato skaičiai turi būti po ranka iki užklausos. Atsiuntinėti ir analizuoti 600 000 dainų
+kiekvienai užklausai reikštų apie 300 GB ir nuo 8 valandų iki 7 dienų vienai užklausai.
+Tačiau vektorius yra ne katalogo kaupimas, o priemonė jo nekaupti: vienai dainai pakanka
+~178 baitų, visos 600 000 sutelpa į ~107 MB, ir garsas po analizės nesaugomas.
+
+Nupirkti šio uždavinio negalima. Panašumo API yra ir jos nemokamos, bet matuoja ne garsą:
+Jamendo `/tracks/similar` – „mostly based on tags", Last.fm `track.getSimilar` – „based on
+listening data", ListenBrainz – klausymo sesijos. Komercinės (Cyanite, AIMS, Reprtoir) garsu
+lygina tik **kliento paties** įkeltą katalogą. Nė viena negrąžina paaiškinimo, kodėl daina
+panaši, ir nė viena nepriima vektoriaus kaip užklausos.
+
+Iš to seka sąžininga šio darbo pozicija: panašumo matas (kosinusas su svoriais) **nėra**
+naujas – jį pardavinėja ir minėtos įmonės. Šio modulio dalis yra tai, ko jos nedaro:
+atrankos politika po balų (dublikatai, atlikėjo limitas, MMR įvairovė), paaiškinimai
+kiekvienam rezultatui ir dalinio rezultato pranešimas. II užduotyje galima teigti
+**projektavimo**, bet dar ne kokybės pranašumą – kokybė nematuota.
+
+Konkretus pirmas žingsnis: AcousticBrainz CC0 JSON iškrovos. Jose yra visi penki kriterijai
+ir 256 skaičių vektorius susideda be jokio garso apdorojimo. Keistųsi tik
+`scripts/seed_catalog.py` ir atsirastų dar vienas `CatalogRepository` adapteris – tai ir yra
+įrodymas, kad 5 skyriuje aprašyta priklausomybių kryptis dirba taip, kaip pažadėta.
