@@ -14,8 +14,8 @@ Ką buvo planuota — [I užduoties projektavimo dokumentas](1-etapas-projektavi
 |---|---|
 | Veikianti pagrindinė funkcija su verslo taisyklėmis ir klaidos apdorojimu | `cli.py` → `app/search_service.py` → `domain/*`; penkios taisyklės, keturi klaidų kodai |
 | Logika atskirta nuo sąsajos ir infrastruktūros | `domain/` · `ports/` · `adapters/` · `app/` · `cli.py` |
-| Bent 3 pagrindinio modulio testai + bent 1 izoliacijos | 70 testų septyniuose failuose, iš jų 5 izoliacijos |
-| Bent du klientai, kurių duomenų negalima nei perskaityti, nei pakeisti | `t-77` ir `t-88`; `_visible()` viena vieta |
+| Bent 3 pagrindinio modulio testai + bent 1 izoliacijos | 83 testai aštuoniuose failuose, iš jų 10 izoliacijos |
+| Bent du klientai, kurių duomenų negalima nei perskaityti, nei pakeisti | `t-77` ir `t-88` plius bendras katalogas; trys matomumo sritys vienoje vietoje |
 | Paleidimas ir README | Viena komanda, nulis paleidimo priklausomybių |
 
 **Apimtis sąmoningai maža.** Prototipas rodo pagrindinį modulį nuo įvesties iki rezultato.
@@ -134,18 +134,32 @@ Pozicinis `--weights 0.7,0.1,0.05,0.05,0.1` būtų įkalęs „kriterijų yra ly
 
 ## 6. Klientų duomenų atskyrimas
 
-Du klientai: `t-77` (59 dainos) ir `t-88` (21 daina). Kataloge jie sąmoningai turi **tuos pačius
-`song_id`**, o `t-88` turi dainų, kurių `t-77` neturi (kataloge `t-0100`, testuose `s-999`) — tai natūraliausias
-pažeidimo kelias, kai svetimas id yra žinomas.
+Katalogas yra ne vienas, o trys: bendras `bendras` (607 dainos) ir dvi paskyros — `t-77`
+(52 įkeltos dainos) ir `t-88` (20). Paskyros sąmoningai turi **tuos pačius `song_id`**, o
+`t-88` turi dainų, kurių `t-77` neturi (kataloge `t-3000`, testuose `s-999`) — tai
+natūraliausias pažeidimo kelias, kai svetimas id yra žinomas.
+
+Matomumas yra ne vienas klausimas, o trys, ir atsakymai skirtingi:
+
+| Klausimas | Kas matoma |
+|---|---|
+| Ką galiu paimti kaip **užklausą**? | bendrą katalogą ir savo įkeltas dainas |
+| Ką galiu gauti **atsakyme**? | **tik** bendrą katalogą |
+| Ką galiu **pakeisti**? | **tik** savo įkeltas dainas |
+
+Vidurinė eilutė yra svarbiausia: **paskyros įkelta daina gali būti tik klausimas, bet
+niekada ne atsakymas.** Todėl ji nenuteka kitam net netiesiogiai — per panašumo rezultatą.
+Bendras katalogas savo ruožtu yra tik skaitomas: jo nepašalina niekas.
 
 Atskyrimą užtikrina trys dalykai:
 
 1. **`tenant_id` yra privalomas argumentas be numatytosios reikšmės** kiekviename repozitorijos
-   metode. Jo pamiršti neįmanoma — be jo kvietimas tiesiog nesuveikia.
-2. **Matomumo sąlyga sudaroma vienoje privačioje funkcijoje** `_visible()`
-   (`adapters/in_memory.py`), kurią kviečia visi metodai. „Užmiršti sąlygą vienoje užklausoje"
-   nebėra kur.
-3. **Atskiri testai** fiksuoja ir skaitymo, ir keitimo kelius.
+   metode. Jo pamiršti neįmanoma — be jo kvietimas tiesiog nesuveikia. Neprisijungęs
+   naudotojas paduoda patį `bendras`, tad atskiro atvejo kode nereikia.
+2. **Matomumo sritys sudaromos trijose privačiose funkcijose** `_readable()`, `_searchable()`
+   ir `_owned()` (`adapters/in_memory.py`), kurias kviečia visi metodai. „Užmiršti sąlygą
+   vienoje užklausoje" nebėra kur.
+3. **Atskiri testai** fiksuoja visus tris kelius: skaitymo, atsakymo ir keitimo.
 
 Keitimo kelias yra `--remove`: svetimos dainos pašalinti nepavyksta. Svetimas id grąžina tą patį
 `DAINA_NERASTA`, kaip ir visai nesanti daina — taip sąmoningai neatskleidžiama, kad tas id
@@ -158,7 +172,7 @@ Jis žemesnis. RLS numatytas III užduočiai.
 
 ## 7. Testai
 
-70 testų, visi atmintyje. Jokio tinklo, failų sistemos ar duomenų bazės — todėl jie veikia per
+83 testai, visi atmintyje. Jokio tinklo, failų sistemos ar duomenų bazės — todėl jie veikia per
 0,3 s ir demonstracijos duomenų nepaveikia.
 
 | Failas | Ką tikrina |
@@ -166,7 +180,8 @@ Jis žemesnis. RLS numatytas III užduočiai.
 | `test_scoring.py` | penki kriterijai, svorių validacija, **dokumento pavyzdys** |
 | `test_selection.py` | dublikatai, atlikėjo limitas, įvairovė |
 | `test_search_service.py` | visas scenarijus, dalinis rezultatas, klaidų keliai |
-| `test_tenant_isolation.py` | skaitymo ir keitimo atskyrimas |
+| `test_tenant_isolation.py` | visos trys matomumo sritys: užklausos, atsakymo ir keitimo |
+| `test_lookup.py` | dainos radimas pagal pavadinimą, dviprasmybė, atskyrimas per pavadinimą |
 | `test_explain.py` | paaiškinimų garantija |
 | `test_models.py` | požymių patikros |
 | `test_cli.py` | argumentų apdorojimas |
@@ -196,7 +211,7 @@ nieko neįrodinėję.
 
 ## 8. Nukrypimai nuo I užduoties ir kodėl
 
-Visi keturi yra sąmoningi prototipo supaprastinimai, leidžiami užduoties („visų I etape
+Visi penki yra sąmoningi prototipo supaprastinimai, leidžiami užduoties („visų I etape
 išvardytų funkcijų šiame etape nereikia").
 
 | # | Nukrypimas | Pagrindimas |
@@ -204,11 +219,13 @@ išvardytų funkcijų šiame etape nereikia").
 | 1 | JSON failas vietoj PostgreSQL su `pgvector` | Spartos įrodymai — III užduotis. Tekstinis katalogas matomas savo akimis. Saugykla už `CatalogRepository` sąsajos, tad `pgvector` bus kita tos pačios sąsajos realizacija |
 | 2 | Komandinė eilutė vietoj FastAPI | Užduotis leidžia „paprastą sąsają, API **arba** komandinę eilutę" |
 | 3 | Sugeneruoti požymiai vietoj Essentia tinklo | Modulis niekada nepriklausė nuo tinklo: jis gauna paruoštus skaičius. Iš kur vektorius — adapterio sprendimas |
-| 4 | Klientų atskyrimą vykdo kodas, ne RLS | Be PostgreSQL RLS nėra. Riziką mažina privalomas argumentas, viena matomumo funkcija ir testai |
+| 4 | Klientų atskyrimą vykdo kodas, ne RLS | Be PostgreSQL RLS nėra. Riziką mažina privalomas argumentas, trys matomumo funkcijos vienoje vietoje ir testai |
+| 5 | Atsakymai imami tik iš bendro katalogo | Dokumentas leidžia ieškoti keliuose kataloguose (`katalogai: ["t-77", "bendras"]`); čia paskyros daina gali būti tik užklausa. Taip ji nenuteka kitam net per rezultatą. Muzikos bibliotekos scenarijui reikėtų dokumento varianto |
 
 **Ko neteigiu:** kad filtrus vykdo duomenų bazė — juos vykdo adapteris, bet **prieš** balų
 skaičiavimą. Kad panašumo kokybė tokia pati kaip su tikru tinklu — ji dar neišmatuota.
-Kad apsauga tokio pat lygio kaip RLS — ji žemesnė.
+Kad apsauga tokio pat lygio kaip RLS — ji žemesnė. Kad 5 nukrypimas atitinka dokumentą
+pažodžiui — neatitinka, jis sąmoningai siauresnis.
 
 ---
 

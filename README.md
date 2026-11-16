@@ -17,10 +17,10 @@ Projekte vartojami ir žodžiai „I/II/III etapas" – tai tie patys dalykai ka
 
 | Reikalavimas | Kur tai yra |
 |---|---|
-| 1. Veikianti pagrindinė funkcija | `python -m timbre --song-id t-0000 --tenant t-77` grąžina surikiuotą sąrašą; verslo taisyklės – `domain/scoring.py` ir `domain/selection.py`; keturi klaidų kodai – `domain/errors.py` |
+| 1. Veikianti pagrindinė funkcija | `python -m timbre --song-id t-0000 --tenant bendras` grąžina surikiuotą sąrašą; verslo taisyklės – `domain/scoring.py` ir `domain/selection.py`; keturi klaidų kodai – `domain/errors.py` |
 | 2. Aiškus kodas | `domain/` (logika) · `ports/` (sąsaja) · `adapters/` (duomenys) · `app/` (orkestracija) · `cli.py` (sąsaja). Pritaikytas šablonas – Strategy |
-| 3. Automatiniai testai | **70 testų**, visi atmintyje: `tests/` septyni failai, įprastas, ribinis ir klaidos atvejai plius penki klientų atskyrimo testai |
-| 4. Kelių klientų palaikymas | Du klientai `t-77` ir `t-88` su savais duomenimis; matomumo sąlyga vienoje vietoje – `adapters/in_memory.py` funkcija `_visible()` |
+| 3. Automatiniai testai | **83 testai**, visi atmintyje: `tests/` aštuoni failai, įprastas, ribinis ir klaidos atvejai plius dešimt atskyrimo testų |
+| 4. Kelių klientų palaikymas | Bendras katalogas `bendras` ir dvi paskyros `t-77`, `t-88` su savo įkeltomis dainomis; trys matomumo sritys vienoje vietoje – `adapters/in_memory.py` |
 | 5. Paleidimas ir README | Šis failas: įrankiai, konfigūracija, viena paleidimo komanda, testų komanda, pavyzdiniai duomenys, šeši demonstravimo žingsniai |
 
 Pilnas II užduoties aprašymas: [docs/2-uzduotis-prototipas.md](docs/2-uzduotis-prototipas.md).
@@ -65,21 +65,23 @@ Linux ar macOS aplinkoje antroji komanda yra `source .venv/bin/activate`.
 Atlikus pradinį paruošimą, prototipas pasileidžia viena komanda:
 
 ```bash
-python -m timbre --song-id t-0000 --tenant t-77
+python -m timbre --song-id t-0000 --tenant bendras
 ```
 
 Pilnas pagrindinis scenarijus su filtrais:
 
 ```bash
-python -m timbre --song-id t-0000 --tenant t-77 --bpm-min 118 --bpm-max 130 --instrumental-only
+python -m timbre --song-id t-0000 --tenant bendras --bpm-min 118 --bpm-max 130 --instrumental-only
 ```
 
 ### Visi argumentai
 
 | Argumentas | Reikšmė |
 |---|---|
-| `--song-id` | **privalomas.** Užklausos dainos id |
-| `--tenant` | **privalomas.** Kliento id: `t-77` arba `t-88` |
+| `--song-id` | užklausos dainos id. Privaloma nurodyti **arba** jį, **arba** `--title` |
+| `--title` | užklausos dainos pavadinimas, kai `song_id` nežinomas |
+| `--artist` | atlikėjas, tikslinantis `--title` |
+| `--tenant` | **privalomas.** `bendras` – paieška be paskyros; `t-77` arba `t-88` – paskyra |
 | `--limit` | rezultatų kiekis, numatyta 10 |
 | `--artist-limit` | dainų iš to paties atlikėjo, numatyta 1 |
 | `--bpm-min`, `--bpm-max` | tempo filtras |
@@ -87,7 +89,7 @@ python -m timbre --song-id t-0000 --tenant t-77 --bpm-min 118 --bpm-max 130 --in
 | `--weights` | svoriai vardais, pvz. `vector=0.7,tempo=0.1` |
 | `--catalog` | katalogo failas, numatyta `data/catalog.json` |
 | `--json` | išvestis I etapo dokumento JSON forma |
-| `--remove` | pašalina `--song-id` dainą iš kliento katalogo |
+| `--remove` | pašalina paskyros įkeltą dainą; bendro katalogo nepašalina niekas |
 
 Išėjimo kodai: `0` pavyko · `1` sistemos klaida (į `stderr` spausdinama `[KODAS] žinutė`) ·
 `2` argumentų klaida.
@@ -98,7 +100,7 @@ Išėjimo kodai: `0` pavyko · `1` sistemos klaida (į `stderr` spausdinama `[KO
 python -m pytest -q
 ```
 
-70 testų, visi atmintyje – be tinklo, failų sistemos ir duomenų bazės, todėl užtrunka
+83 testai, visi atmintyje – be tinklo, failų sistemos ir duomenų bazės, todėl užtrunka
 mažiau nei sekundę ir demonstracijos duomenų nepaveikia.
 
 Testų skaičius išaugo nuo 37 iki 70 po to, kai testai buvo patikrinti **mutacijomis**: kodas
@@ -107,21 +109,61 @@ kad 15 iš 18 sulaužymų testai praleidžia – pavyzdžiui, bendro balo dalybo
 pašalinimo niekas nepagaudavo, nes visuose testuose svorių suma buvo lygiai 1,0. Dabar tos
 spragos uždarytos.
 
-Svarbiausias yra `tests/test_scoring.py::test_dokumento_pavyzdys_atkuria_visus_sesis_balus`:
+83 testai, visi atmintyje. Svarbiausias yra
+`tests/test_scoring.py::test_dokumento_pavyzdys_atkuria_visus_sesis_balus`:
 jis atkuria patvirtinto I etapo dokumento 3 skyriaus pavyzdį – visus šešis kandidatų balus
 (0,908 · 0,900 · 0,883 · 0,877 · 0,720 · 0,945) su tolerancija 0,001. Laukiamos reikšmės
 paimtos iš dokumento, ne iš kodo išvesties.
 
 ## Pavyzdiniai duomenys
 
-`data/catalog.json` – 80 dainų, du klientai (`t-77` 59 dainos, `t-88` 21 daina). Failas
-**yra repozitorijoje**, todėl nuklonavus nieko generuoti nereikia.
+`data/catalog.json` – 679 dainos trijuose kataloguose:
+
+| Katalogas | Dainų | Kas tai |
+|---|---|---|
+| `bendras` | 607 | Vienintelis atsakymų šaltinis, matomas visiems |
+| `t-77` | 52 | Paskyros įkeltos dainos, matomos tik jai |
+| `t-88` | 20 | Kitos paskyros įkeltos dainos |
+
+Failas **yra repozitorijoje** (apie 3 MB), todėl nuklonavus nieko generuoti nereikia.
+
+Dokumento pavyzdys (`t-0000` ir kandidatai `t-0001`–`t-0006`) gyvena **bendrame**
+kataloge, nes atsakymai imami tik iš jo.
 
 Katalogą galima sugeneruoti iš naujo:
 
 ```bash
 python scripts/seed_catalog.py
 ```
+
+## Katalogai ir matomumas
+
+Sistema turi **vieną bendrą katalogą** ir **paskyras**. Tai ne du vienodi dalykai: jie
+atsako į skirtingus klausimus, todėl matomumas yra ne vienas, o trys.
+
+| Klausimas | Kas matoma |
+|---|---|
+| Ką galiu paimti kaip **užklausą**? | bendrą katalogą ir savo įkeltas dainas |
+| Ką galiu gauti **atsakyme**? | **tik** bendrą katalogą |
+| Ką galiu **pakeisti**? | **tik** savo įkeltas dainas |
+
+Iš vidurinės eilutės seka pagrindinė savybė: **paskyros įkelta daina gali būti tik
+klausimas, bet niekada ne atsakymas.** Todėl ji nenuteka kitam net netiesiogiai – per
+panašumo rezultatą. Bendras katalogas savo ruožtu yra **tik skaitomas**: jo nepašalina
+niekas, nors jis matomas visiems.
+
+Neprisijungęs žmogus paduoda patį `bendras` kaip `--tenant`. Jam „savų dainų" rinkinys
+tiesiog tuščias, todėl atskiro „be paskyros" atvejo kode nėra, o `tenant_id` lieka
+privalomas be numatytosios reikšmės.
+
+Visos trys sritys sudaromos `adapters/in_memory.py` funkcijose `_readable()`,
+`_searchable()` ir `_owned()`; visi kiti metodai kviečia tik jas, todėl „užmiršti
+sąlygą vienoje užklausoje" fiziškai nebėra kur.
+
+Tai atitinka patvirtintą I etapo dokumentą, kuriame jau buvo `katalogai: ["t-77",
+"bendras"]` ir sakinys „Žyma `bendras` pažymi viešąjį katalogą, kurį mato visi".
+**Ko neteigiu:** kad tai tas pats, kas dokumente – dokumentas leidžia ieškoti ir savame
+kataloge, o čia atsakymai imami tik iš bendro. Tai sąmoningas nukrypimas.
 
 Generatorius determinuotas (`random.Random(20261113)`), tad tas pats paleidimas visada duoda
 baitas į baitą tą patį failą. Tai naudinga ir po demonstracijos: jei `--remove` pašalino
@@ -147,68 +189,96 @@ tikri ir vykdomi užklausos metu, bet vektoriai nėra neuroninio tinklo išvesti
    tada atranka, tada paaiškinimai.
 
    ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --bpm-min 118 --bpm-max 130 --instrumental-only
+   python -m timbre --song-id t-0000 --tenant bendras --bpm-min 118 --bpm-max 130 --instrumental-only
    ```
 
    Išvestyje tikrinama: visų tempas 118–130, visos instrumentinės, nė vienos užklausos
    atlikėjo (`A-1021`) dainos, ne daugiau vienos iš to paties atlikėjo, kiekviena su bent
    dviem paaiškinimais.
 
-2. **Tie patys duomenys, kiti svoriai – kita eilė.** Balai skaičiuojami užklausos metu,
+2. **Paieška be paskyros, pagal pavadinimą.** Žmogus, atėjęs su nuoroda, `song_id`
+   nežino – jis težino atlikėją ir pavadinimą. Rezultatas tas pats.
+
+   ```bash
+   python -m timbre --title "Pateikta daina" --artist "A-1021" --tenant bendras
+   ```
+
+   Jei pagal pavadinimą rastos kelios dainos, sistema jų **nepasirenka tyliai**: ji
+   išvardija jas ir paprašo nurodyti `--song-id`.
+
+3. **Tie patys duomenys, kiti svoriai – kita eilė.** Balai skaičiuojami užklausos metu,
    niekas nėra paruošta iš anksto.
 
    ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --weights vector=0.1,tempo=0.8,key=0.1
+   python -m timbre --song-id t-0000 --tenant bendras --weights vector=0.1,tempo=0.8,key=0.1
    ```
 
-3. **Klaidos ir konfliktai.** Keturi klaidų kodai, visi grąžina išėjimo kodą 1.
+4. **Klaidos ir konfliktai.** Keturi klaidų kodai, visi grąžina išėjimo kodą 1.
 
    ```bash
-   python -m timbre --song-id nera-tokios --tenant t-77
-   ```
-
-   ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --weights vector=1.5
+   python -m timbre --song-id nera-tokios --tenant bendras
    ```
 
    ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --weights vector=0,tempo=0,key=0,loudness=0,mood=0
+   python -m timbre --song-id t-0000 --tenant bendras --weights vector=1.5
    ```
 
    ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --bpm-min 130 --bpm-max 118
+   python -m timbre --song-id t-0000 --tenant bendras --weights vector=0,tempo=0,key=0,loudness=0,mood=0
    ```
 
-4. **Dalinis rezultatas.** Per siauras filtras negrąžina tuščio sąrašo tyliai – grąžina, ką
+   ```bash
+   python -m timbre --song-id t-0000 --tenant bendras --bpm-min 130 --bpm-max 118
+   ```
+
+5. **Dalinis rezultatas.** Per siauras filtras negrąžina tuščio sąrašo tyliai – grąžina, ką
    turi, ir nurodo labiausiai apribojusį filtrą.
 
    ```bash
-   python -m timbre --song-id t-0000 --tenant t-77 --bpm-min 121 --bpm-max 123 --instrumental-only
+   python -m timbre --song-id t-0000 --tenant bendras --bpm-min 121 --bpm-max 123 --instrumental-only
    ```
 
-5. **Klientų duomenų atskyrimas.** Daina `t-0100` priklauso klientui `t-88`. Pirma komanda ją
-   randa, antra ir trečia – ne, nors id tiksliai žinomas.
+6. **Paskyrų duomenų atskyrimas.** Daina `t-3000` yra paskyros `t-88` įkelta daina.
+   Pirma komanda ją randa, antra ir trečia – ne, nors id tiksliai žinomas.
 
    ```bash
-   python -m timbre --song-id t-0100 --tenant t-88 --limit 3
-   ```
-
-   ```bash
-   python -m timbre --song-id t-0100 --tenant t-77
+   python -m timbre --song-id t-3000 --tenant t-88 --limit 3
    ```
 
    ```bash
-   python -m timbre --song-id t-0100 --tenant t-77 --remove
+   python -m timbre --song-id t-3000 --tenant t-77
    ```
-
-   Trečioji komanda yra **keitimo** kelias: svetimos dainos pašalinti nepavyksta. Savo dainą
-   klientas pašalinti gali:
 
    ```bash
-   python -m timbre --song-id t-0101 --tenant t-88 --remove
+   python -m timbre --song-id t-3000 --tenant t-77 --remove
    ```
 
-6. **Testai.**
+   Trečioji komanda yra **keitimo** kelias: svetimos dainos pašalinti nepavyksta. Savo
+   įkeltą dainą paskyra pašalinti gali:
+
+   ```bash
+   python -m timbre --song-id t-3001 --tenant t-88 --remove
+   ```
+
+7. **Bendras katalogas yra tik skaitomas.** Daina `t-0001` matoma visiems, bet jos
+   nepašalina niekas – nei paskyra, nei neprisijungęs naudotojas.
+
+   ```bash
+   python -m timbre --song-id t-0001 --tenant t-77 --remove
+   ```
+
+   ```bash
+   python -m timbre --song-id t-0001 --tenant bendras --remove
+   ```
+
+8. **Įkelta daina niekada negrįžta atsakyme.** Užklausa iš paskyros įkeltos dainos veikia,
+   bet rezultatai ateina tik iš bendro katalogo – net pačiai paskyrai.
+
+   ```bash
+   python -m timbre --song-id t-2000 --tenant t-77 --limit 5
+   ```
+
+9. **Testai.**
 
    ```bash
    python -m pytest -q
@@ -272,7 +342,7 @@ Klaidų kodai: `DAINA_NERASTA`, `NULINIAI_SVORIAI`, `NETINKAMAS_SVORIS`, `NETINK
 
 ## Nukrypimai nuo I etapo dokumento ir kodėl
 
-Visi keturi yra sąmoningi prototipo supaprastinimai, o ne nespėtas darbas.
+Visi penki yra sąmoningi prototipo supaprastinimai, o ne nespėtas darbas.
 
 1. **JSON failas vietoj PostgreSQL su `pgvector`.** Spartos įrodymai pagal pačią užduotį yra
    III etapo darbas. Tekstinis katalogas matomas savo akimis ir nereikalauja bazės kūrimo
@@ -289,9 +359,16 @@ Visi keturi yra sąmoningi prototipo supaprastinimai, o ne nespėtas darbas.
 4. **Klientų atskyrimą vykdo programos kodas, ne duomenų bazės eilučių lygio saugumas (RLS).**
    Be PostgreSQL RLS nėra. Riziką, aprašytą pačiame I etapo dokumente – „užtenka vienoje
    užklausoje užmiršti sąlygą" – mažina trys dalykai: `tenant_id` yra privalomas argumentas be
-   numatytosios reikšmės kiekviename repozitorijos metode; matomumo sąlyga sudaroma **vienoje**
-   privačioje funkcijoje `_visible()`, kurią kviečia visi metodai; ir atskiri izoliacijos
-   testai fiksuoja elgesį. **Ko neteigiu:** kad apsaugos lygis toks pat kaip RLS – jis žemesnis.
+   numatytosios reikšmės kiekviename repozitorijos metode; matomumo sritys sudaromos **trijose**
+   privačiose funkcijose `_readable()`, `_searchable()` ir `_owned()`, kurias kviečia visi
+   metodai; ir atskiri izoliacijos testai fiksuoja elgesį. **Ko neteigiu:** kad apsaugos
+   lygis toks pat kaip RLS – jis žemesnis.
+5. **Atsakymai imami tik iš bendro katalogo.** Patvirtintas I etapo dokumentas leidžia
+   klientui ieškoti keliuose kataloguose iš karto (`katalogai: ["t-77", "bendras"]`). Čia
+   atsakymai imami **tik** iš bendro: paskyros įkelta daina gali būti tik užklausa, bet
+   niekada ne atsakymas. Taip ji nenuteka kitam net netiesiogiai – per panašumo rezultatą.
+   **Ko neteigiu:** kad tai atitinka dokumentą pažodžiui – nukrypimas sąmoningas, o
+   muzikos bibliotekos scenarijui (ieškoti savo kataloge) reikėtų dokumento varianto.
 
 ### Trys vietos, kur patvirtintas dokumentas sau prieštarauja
 
